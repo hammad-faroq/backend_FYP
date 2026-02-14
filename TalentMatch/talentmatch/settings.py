@@ -103,15 +103,21 @@ WSGI_APPLICATION = 'talentmatch.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# DATABASES = { Local docker deployment
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': os.getenv('DB_NAME', 'talentmatch'),
+#         'USER': os.getenv('DB_USER', 'django'),      # Not root
+#         'PASSWORD': os.getenv('DB_PASSWORD', 'django123'),
+#         'HOST': os.getenv('DB_HOST', 'db'),          # 'db' = service name in docker-compose
+#         'PORT': '3306',
+#     }
+# }
+import dj_database_url
+import os
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DB_NAME', 'talentmatch'),
-        'USER': os.getenv('DB_USER', 'django'),      # Not root
-        'PASSWORD': os.getenv('DB_PASSWORD', 'django123'),
-        'HOST': os.getenv('DB_HOST', 'db'),          # 'db' = service name in docker-compose
-        'PORT': '3306',
-    }
+    'default': dj_database_url.parse(os.environ.get('DATABASE_URL'), conn_max_age=600)
 }
 # DATABASES = {
 #     'default': {
