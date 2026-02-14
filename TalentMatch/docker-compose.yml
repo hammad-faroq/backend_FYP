@@ -7,9 +7,13 @@ services:
       dockerfile: Dockerfile
     container_name: talentmatch_web
     command: /app/entrypoint.sh
-    env_file:
-      - .env
+    environment:
+      DATABASE_URL: "mysql://root:iBkwdbDgAQxKHEjQuaBatfKBsTxduWOh@yamanote.proxy.rlwy.net:39544/railway"
+      QDRANT_URL: "https://3f0e6e6f-1dd1-4475-a2e0-e14a5550b058.eu-central-1-0.aws.cloud.qdrant.io"
+      QDRANT_API_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.iNWU5jh2EyAG_YaPszV7t4rrja93DnQAPwBQcMzTyzM"
+      SECRET_KEY: "django-insecure-u=qygnh3ne%9)$8)*lz^b#b91*^n**mmm8x#!q1p7bv8lchs$@"
+      PORT: 8000
     ports:
-      - "${PORT}:${PORT}"
+      - "8000:8000"
     volumes:
       - .:/app
