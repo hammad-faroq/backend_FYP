@@ -1,0 +1,69 @@
+Your Resume Analysis is Complete!
+
+Dear {{ user_name }},
+
+We have successfully analyzed your resume. Here are the insights we've generated:
+
+📊 CAREER INSIGHTS
+{% if career_insights.strengths %}
+Strengths:
+{% for strength in career_insights.strengths %}
+- {{ strength }}
+{% endfor %}
+{% endif %}
+
+{% if career_insights.improvement_areas %}
+Areas for Improvement:
+{% for area in career_insights.improvement_areas %}
+- {{ area }}
+{% endfor %}
+{% endif %}
+
+{% if career_insights.suggested_roles %}
+Suggested Roles:
+{% for role in career_insights.suggested_roles %}
+- {{ role }}
+{% endfor %}
+{% endif %}
+
+🎯 LEARNING PATH
+{% if learning_path and learning_path.target_role %}
+Target Role: {{ learning_path.target_role }}
+
+{% if learning_path.skills_gap %}
+Skills to Develop:
+{% for skill in learning_path.skills_gap %}
+- {{ skill }}
+{% endfor %}
+{% endif %}
+
+{% if learning_path.recommended_courses %}
+Recommended Courses:
+{% for course in learning_path.recommended_courses %}
+- {{ course }}
+{% endfor %}
+{% endif %}
+{% endif %}
+
+🏆 CERTIFICATION RECOMMENDATIONS
+{% for cert in certifications %}
+- {{ cert.name }}: {{ cert.description }}
+{% endfor %}
+
+💼 TOP JOB MATCHES
+{% for job in matched_jobs %}
+{{ job.title }} at {{ job.company }}
+Match Score: {{ job.match_score }}%
+{% if job.location %}Location: {{ job.location }}{% endif %}
+
+{% endfor %}
+
+You can view the complete analysis in your dashboard.
+
+Best regards,
+CareerPath Team
+
+---
+Analysis ID: {{ resume_id }}
+Date: {{ analysis_date }}
+This is an automated message. Please do not reply to this email.

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Enter Resume Info</title>
+    {% load static %}
+    {% load widget_tweaks %}
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-r from-gray-50 via-gray-100 to-gray-50 min-h-screen flex justify-center py-12">
+
+    <div class="w-full max-w-4xl space-y-6">
+
+        <!-- Header -->
+        <div class="bg-gray-200 p-6 rounded-lg shadow-lg text-center">
+            <h2 class="text-3xl font-bold text-gray-900 mb-2">Fill Resume Info</h2>
+            <h3 class="text-lg text-gray-700">You have selected: {{ selected_template|title }}</h3>
+        </div>
+
+        <form method="post" action="{% url 'resume_input' %}?template=template2">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+
+            <!-- Personal Info Section -->
+            <div class="bg-white p-6 rounded-lg shadow-md space-y-6">
+                <h4 class="text-xl font-semibold text-gray-900 border-b border-gray-300 pb-2">Personal Information</h4>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="{{ form.full_name.id_for_label }}" class="block font-medium text-gray-700 mb-1">Full Name</label>
+                        {{ form.full_name|add_class:"w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" }}
+                    </div>
+                    <div>
+                        <label for="{{ form.phone.id_for_label }}" class="block font-medium text-gray-700 mb-1">Phone</label>
+                        {{ form.phone|add_class:"w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" }}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="{{ form.address.id_for_label }}" class="block font-medium text-gray-700 mb-1">Address</label>
+                        {{ form.address|add_class:"w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" }}
+                    </div>
+                    <div>
+                        <label for="{{ form.email.id_for_label }}" class="block font-medium text-gray-700 mb-1">Email</label>
+                        {{ form.email|add_class:"w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" }}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="{{ form.linkedin.id_for_label }}" class="block font-medium text-gray-700 mb-1">LinkedIn</label>
+                        {{ form.linkedin|add_class:"w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" }}
+                    </div>
+                    <div>
+                        <label for="{{ form.github.id_for_label }}" class="block font-medium text-gray-700 mb-1">GitHub</label>
+                        {{ form.github|add_class:"w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
+                <h4 class="text-xl font-semibold text-gray-900 border-b border-gray-300 pb-2">Professional Summary</h4>
+                <div id="summary-container" class="space-y-2">
+                    <input type="text" name="summary_points" placeholder="Enter a summary point"
+                           class="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                </div>
+                <button type="button" class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-500 transition"
+                        onclick="addSummaryPoint()">+ Add Summary Point</button>
+            </div>
+
+            <!-- Teaching Skills -->
+            <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
+                <h4 class="text-xl font-semibold text-gray-900 border-b border-gray-300 pb-2">Teaching Skills & Projects</h4>
+                <div id="teaching-skills-container" class="space-y-2">
+                    <input type="text" name="teaching_skills" placeholder="Enter teaching skill"
+                           class="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                </div>
+                <button type="button" class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-500 transition"
+                        onclick="addTeachingSkill()">+ Add Teaching Skill</button>
+            </div>
+
+            <!-- Technical Skills -->
+            <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
+                <h4 class="text-xl font-semibold text-gray-900 border-b border-gray-300 pb-2">Technical Skills</h4>
+                <div id="technical-skills-container" class="space-y-4">
+                    <div class="tech-skill-entry grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" name="tech_category" placeholder="Category (e.g., Internet)"
+                               class="p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                        <input type="text" name="tech_details" placeholder="Details (e.g., Python, PHP, Java)"
+                               class="p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                    </div>
+                </div>
+                <button type="button" class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-500 transition"
+                        onclick="addTechnicalSkill()">+ Add Technical Skill</button>
+            </div>
+
+            <!-- Education -->
+            <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
+                <h4 class="text-xl font-semibold text-gray-900 border-b border-gray-300 pb-2">Education</h4>
+                <div id="education-container" class="space-y-4">
+                    <div class="edu-entry grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <input type="text" name="edu_degree" placeholder="Degree"
+                               class="p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                        <input type="text" name="edu_institution" placeholder="Institution"
+                               class="p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                        <input type="text" name="edu_years" placeholder="Years"
+                               class="p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                    </div>
+                </div>
+                <button type="button" class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-500 transition"
+                        onclick="addEducation()">+ Add Education</button>
+            </div>
+
+            <!-- Trainings -->
+            <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
+                <h4 class="text-xl font-semibold text-gray-900 border-b border-gray-300 pb-2">Trainings & Certifications</h4>
+                <div id="trainings-container" class="space-y-4">
+                    <div class="training-entry grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" name="training_title" placeholder="Training Title"
+                               class="p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                        <input type="text" name="training_provider" placeholder="Provider"
+                               class="p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                    </div>
+                </div>
+                <button type="button" class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-500 transition"
+                        onclick="addTraining()">+ Add Training</button>
+            </div>
+
+            <!-- Experience -->
+            <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
+                <h6 class="text-xl font-semibold text-gray-900 border-b border-gray-300 pb-2">Work Experience</h6>
+                <div id="experience-container" class="space-y-4">
+                    <div class="exp-entry space-y-4">
+                        <input type="text" name="exp_job" placeholder="Job Title"
+                           class="w-full font-medium p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                        <input type="text" name="exp_company" placeholder="Company"
+                               class="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                        <input type="text" name="exp_duration" placeholder="Duration"
+                               class="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                        <textarea name="exp_resp" placeholder="Responsibilities / Achievements" rows="3"
+                                  class="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400"></textarea>
+                    </div>
+                </div>
+                <button type="button" class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-500 transition"
+                        onclick="addExperience()">+ Add Experience</button>
+            </div>
+
+            <!-- Submit -->
+            <button type="submit"
+                    class="w-full px-6 py-3 bg-gray-800 text-white font-bold rounded hover:bg-gray-600 transition">
+                Generate Resume
+            </button>
+        </form>
+    </div>
+
+    <script>
+        function addSummaryPoint() {
+            const c = document.getElementById('summary-container');
+            const i = document.createElement('input');
+            i.type = 'text'; 
+            i.name = 'summary_points'; 
+            i.placeholder = 'Enter a summary point';
+            i.className = 'w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400 mt-2';
+            c.appendChild(i);
+        }
+        function addTeachingSkill() {
+            const c = document.getElementById('teaching-skills-container');
+            const i = document.createElement('input');
+            i.type = 'text'; i.name = 'teaching_skills'; i.placeholder = 'Enter teaching skill';
+            i.className = 'w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400 mt-2';
+            c.appendChild(i);
+        }
+        function addTechnicalSkill() {
+            const c = document.getElementById('technical-skills-container');
+            const w = document.createElement('div');
+            w.className = 'tech-skill-entry grid grid-cols-1 md:grid-cols-2 gap-4 mt-4';
+            w.innerHTML = `
+                <input type="text" name="tech_category" placeholder="Category" class="p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                <input type="text" name="tech_details" placeholder="Details" class="p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+            `;
+            c.appendChild(w);
+        }
+        function addEducation() {
+            const c = document.getElementById('education-container');
+            const w = document.createElement('div');
+            w.className = 'edu-entry grid grid-cols-1 md:grid-cols-3 gap-4 mt-4';
+            w.innerHTML = `
+                <input type="text" name="edu_degree" placeholder="Degree" class="p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                <input type="text" name="edu_institution" placeholder="Institution" class="p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                <input type="text" name="edu_years" placeholder="Years" class="p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+            `;
+            c.appendChild(w);
+        }
+        function addTraining() {
+            const c = document.getElementById('trainings-container');
+            const w = document.createElement('div');
+            w.className = 'training-entry grid grid-cols-1 md:grid-cols-2 gap-4 mt-4';
+            w.innerHTML = `
+                <input type="text" name="training_title" placeholder="Training Title" class="p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                <input type="text" name="training_provider" placeholder="Provider" class="p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+            `;
+            c.appendChild(w);
+        }
+        function addExperience() {
+            const c = document.getElementById('experience-container');
+            const w = document.createElement('div');
+            w.className = 'exp-entry space-y-4 mt-4';
+            w.innerHTML = `
+                <input type="text" name="exp_job" placeholder="Job Title" class="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                <input type="text" name="exp_company" placeholder="Company" class="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                <input type="text" name="exp_duration" placeholder="Duration" class="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400" />
+                <textarea name="exp_resp" placeholder="Responsibilities / Achievements" rows="3" class="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400"></textarea>
+            `;
+            c.appendChild(w);
+        }
+    </script>
+</body>
+</html>

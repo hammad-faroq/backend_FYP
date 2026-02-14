@@ -1,0 +1,160 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ cv.full_name }}</title>
+    <meta name="viewport" content="width=device-width"/>
+    <link href="https://cdn.tailwindcss.com" rel="stylesheet">
+    <style>
+    @media print { .no-print { display: none !important; } }
+
+    /* Base bullet list */
+    ul.custom-bullets {
+        list-style: none;
+        padding-left: 1rem;
+        margin: 0;
+    }
+
+    ul.custom-bullets li {
+        position: relative;
+        padding-left: 1.25rem; /* space for bullet */
+    }
+
+    ul.custom-bullets li::before {
+        content: "•";
+        position: absolute;
+        left: 0;
+        font-weight: bold;
+        color: #000;
+    }
+</style>
+
+</head>
+<body class="bg-black-100 text-gray-900 font-sans">
+
+    <div class="max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-10 my-10 space-y-8">
+
+        <!-- Header -->
+        <header style="border-bottom: 1px solid #000000; padding-bottom: 1rem; margin-bottom: 1rem; text-align: center;">
+            <h1 style="font-size: 28px; font-weight: bold; color: #111; margin: 0;">{{ cv.full_name }}</h1>
+            <p style="color: #020202; margin: 4px 0;">{{ cv.address }}</p>
+            <p style="color: #000000; margin: 4px 0;">
+                📞 {{ cv.phone }} | ✉️ 
+                <a href="mailto:{{ cv.email }}" style="color: #2563eb; text-decoration: none;">{{ cv.email }}</a>
+            </p>
+            <p style="color: #000000; margin: 4px 0;">
+                {% if cv.linkedin %}
+                    <a href="{{ cv.linkedin }}" style="color: #2563eb; text-decoration: none;">LinkedIn</a>
+                {% endif %}
+                {% if cv.github %}
+                    | <a href="{{ cv.github }}" style="color: #2563eb; text-decoration: none;">GitHub</a>
+                {% endif %}
+            </p>
+        </header>
+
+        <!-- Summary -->
+        {% if cv.summary_points.all %}
+        <section class="space-y-2" style="border-bottom: 1px solid #000000; padding-bottom: 1rem; margin-bottom: 1rem">
+            <h3 class="text-xl font-bold text-gray-900 text-left">Summary</h3>
+            <ul class="custom-bullets text-gray-700 space-y-1">
+                {% for point in cv.summary_points.all %}
+                    <li>{{ point.point }}</li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        <!-- Teaching Skills -->
+        {% if cv.teaching_skills.all %}
+        <section class="space-y-2" style="border-bottom: 1px solid #000000; padding-bottom: 1rem; margin-bottom: 1rem">
+            <h3 class="text-xl font-bold text-gray-900 text-left">Teaching Skills or Projects</h3>
+            <ul class="custom-bullets text-gray-700 space-y-1">
+                {% for skill in cv.teaching_skills.all %}
+                    <li>{{ skill.description }}</li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        <!-- Technical Skills -->
+        {% if cv.technical_skills.all %}
+        <section class="space-y-2" style="border-bottom: 1px solid #000000; padding-bottom: 1rem; margin-bottom: 1rem">
+            <h3 class="text-xl font-bold text-gray-900 text-left">Technical Skills</h3>
+            <ul class="custom-bullets text-gray-700 space-y-1">
+                {% for tech in cv.technical_skills.all %}
+                    <li><span class="font-semibold">{{ tech.category }}:</span> {{ tech.details }}</li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        <!-- Education -->
+        {% if cv.education.all %}
+        <section class="space-y-2" style="border-bottom: 1px solid #000000; padding-bottom: 1rem; margin-bottom: 1rem">
+            <h3 class="text-xl font-bold text-gray-900 text-left">Education</h3>
+            <ul class="custom-bullets text-gray-700 space-y-1">
+                {% for edu in cv.education.all %}
+                    <li><span class="font-semibold">{{ edu.degree }}</span>, {{ edu.institution }} ({{ edu.years }})</li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        <!-- Trainings -->
+        {% if cv.trainings.all %}
+        <section class="space-y-2" style="border-bottom: 1px solid #000000; padding-bottom: 1rem; margin-bottom: 1rem">
+            <h3 class="text-xl font-bold text-gray-900 text-left">Trainings or Cerificate</h3>
+            <ul class="custom-bullets text-gray-700 space-y-1">
+                {% for training in cv.trainings.all %}
+                    <li><span class="font-semibold">{{ training.title }}</span> — {{ training.provider }}</li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        <!-- Experience -->
+        {% if cv.experience.all %}
+        <section class="space-y-2">
+        <h3 class="text-xl font-bold text-gray-900 text-left">Experience</h3>
+
+        <ul class="custom-bullets text-gray-900 space-y-4">
+        {% for exp in cv.experience.all %}
+        <li>
+            <!-- Top row: title left, company | duration right -->
+            <div class="grid grid-cols-[1fr_auto] gap-4 items-baseline">
+                <span class="font-medium">{{ exp.job_title }}</span>
+                <span>
+                    <span class="italic">{{ exp.company }}</span>
+                    <span class="not-italic"> | {{ exp.duration }}</span>
+                </span>
+            </div>
+
+            <!-- Sub bullets: responsibilities -->
+            {% if exp.responsibilities %}
+            <ul class="custom-bullets text-gray-600 space-y-1 mt-1 ml-6">
+                {% for line in exp.responsibilities.splitlines %}
+                    {% if line.strip %}<li>{{ line }}</li>{% endif %}
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </li>
+        {% endfor %}
+        </ul>
+
+        </section>
+        {% endif %}
+
+
+    </div>
+
+    <!-- Download as PDF -->
+    <div class="no-print text-center my-6">
+        <a href="{% url 'resume_pdf2' cv.id %}" 
+           class="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700">
+           ⬇ Download as PDF
+        </a>
+    </div>
+
+</body>
+</html>

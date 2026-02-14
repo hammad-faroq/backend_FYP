@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #007bff; color: white; padding: 20px; text-align: center; }
+        .content { background: #f9f9f9; padding: 20px; border-radius: 5px; }
+        .section { margin-bottom: 25px; }
+        .section-title { color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 5px; }
+        .job-item { background: white; padding: 15px; margin: 10px 0; border-left: 4px solid #28a745; }
+        .insight-item { background: white; padding: 10px; margin: 5px 0; border-radius: 3px; }
+        .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Your Resume Analysis is Complete!</h1>
+        </div>
+        
+        <div class="content">
+            <p>Dear {{ user_name }},</p>
+            <p>We have successfully analyzed your resume. Here are the insights we've generated:</p>
+            
+            <!-- Career Insights Section -->
+            {% if career_insights %}
+            <div class="section">
+                <h2 class="section-title">📊 Career Insights</h2>
+                {% if career_insights.strengths %}
+                <h3>Your Strengths:</h3>
+                <ul>
+                    {% for strength in career_insights.strengths %}
+                    <li class="insight-item">{{ strength }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                
+                {% if career_insights.improvement_areas %}
+                <h3>Areas for Improvement:</h3>
+                <ul>
+                    {% for area in career_insights.improvement_areas %}
+                    <li class="insight-item">{{ area }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                
+                {% if career_insights.suggested_roles %}
+                <h3>Suggested Roles:</h3>
+                <ul>
+                    {% for role in career_insights.suggested_roles %}
+                    <li class="insight-item">{{ role }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <!-- Learning Path Section -->
+            {% if learning_path and learning_path.target_role %}
+            <div class="section">
+                <h2 class="section-title">🎯 Learning Path</h2>
+                <h3>Target Role: {{ learning_path.target_role }}</h3>
+                {% if learning_path.skills_gap %}
+                <h4>Skills to Develop:</h4>
+                <ul>
+                    {% for skill in learning_path.skills_gap %}
+                    <li class="insight-item">{{ skill }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                
+                {% if learning_path.recommended_courses %}
+                <h4>Recommended Courses:</h4>
+                <ul>
+                    {% for course in learning_path.recommended_courses %}
+                    <li class="insight-item">{{ course }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <!-- Certification Recommendations -->
+            {% if certifications %}
+            <div class="section">
+                <h2 class="section-title">🏆 Certification Recommendations</h2>
+                <ul>
+                    {% for cert in certifications %}
+                    <li class="insight-item">
+                        <strong>{{ cert.name }}</strong><br>
+                        {{ cert.description }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            
+            <!-- Matched Jobs Section -->
+            {% if matched_jobs %}
+            <div class="section">
+                <h2 class="section-title">💼 Top Job Matches</h2>
+                {% for job in matched_jobs %}
+                <div class="job-item">
+                    <h3>{{ job.title }}</h3>
+                    <p><strong>Company:</strong> {{ job.company }}</p>
+                    <p><strong>Match Score:</strong> {{ job.match_score }}%</p>
+                    {% if job.location %}
+                    <p><strong>Location:</strong> {{ job.location }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <p>You can view the complete analysis in your dashboard.</p>
+            <p>Best regards,<br>CareerPath Team</p>
+        </div>
+        
+        <div class="footer">
+            <p>Analysis ID: {{ resume_id }} | Date: {{ analysis_date }}</p>
+            <p>This is an automated message. Please do not reply to this email.</p>
+        </div>
+    </div>
+</body>
+</html>

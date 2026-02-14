@@ -1,0 +1,105 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Select Your Resume Template</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col items-center py-12">
+
+    <h1 class="text-5xl font-extrabold text-gray-800 mb-12 text-center">
+        Choose Your Resume Template
+    </h1>
+      <!-- 🔴 Error Messages;THis will show the error msg as well, beasue we will redirect to thihs page and call api -->
+    {% if errors %}
+    <div class="mb-6 w-full max-w-4xl bg-red-50 border border-red-300 text-red-700 p-4 rounded-lg shadow">
+        <ul class="list-disc list-inside">
+        {% for field, field_errors in errors.items %}
+            <li><strong>{{ field }}:</strong> {{ field_errors|join:", " }}</li>
+        {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-10 w-full max-w-6xl px-4">
+
+        <!-- Template 1 Card -->
+        <div class="bg-white shadow-xl rounded-2xl p-6 flex flex-col items-center transition-transform hover:scale-105 hover:shadow-2xl">
+            <img src="{% static 'images/template1.png' %}" alt="Template 1" class="w-full h-auto rounded-lg mb-6 border border-gray-200">
+            <p class="text-xl font-semibold text-gray-700 mb-4">Template 1</p>
+            <div class="flex space-x-4">
+                <a href="{% static 'images/template1.png' %}" target="_blank"
+                   class="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-full font-semibold shadow-md transition duration-300">
+                   Preview
+                </a>
+                <a href="{% url 'resume_input' %}?template=template1"
+                   class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-semibold shadow-md transition duration-300">
+                   Make CV
+                </a>
+            </div>
+        </div>
+
+        <!-- Template 2 Card -->
+        <div class="bg-white shadow-xl rounded-2xl p-6 flex flex-col items-center transition-transform hover:scale-105 hover:shadow-2xl">
+            <img src="{% static 'images/template2.jpg' %}" alt="Template 2" class="w-full h-auto rounded-lg mb-6 border border-gray-200">
+            <p class="text-xl font-semibold text-gray-700 mb-4">Template 2</p>
+            <div class="flex space-x-4">
+                <a href="{% static 'images/template2.jpg' %}" target="_blank"
+                   class="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-full font-semibold shadow-md transition duration-300">
+                   Preview
+                </a>
+                <a href="{% url 'resume_input' %}?template=template2"
+                   class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-semibold shadow-md transition duration-300">
+                   Make CV
+                </a>
+            </div>
+        </div>
+
+        <!-- Upload Resume Card -->
+<div class="bg-white shadow-xl rounded-2xl p-6 flex flex-col items-center transition-transform hover:scale-105 hover:shadow-2xl">
+    <img src="{% static 'images/template1.png' %}" alt="Resume Template 1"
+     class="w-40 h-40 rounded-lg mb-6 border border-gray-200 shadow-sm object-contain">
+
+    <h3 class="text-2xl font-bold text-gray-800 mb-2">Upload Your Resume</h3>
+    <p class="text-gray-500 text-center mb-6">
+        Upload your existing resume in <strong>PDF</strong> or <strong>DOCX</strong> format.<br>
+        Max size: <strong>5MB</strong>.
+    </p>
+
+    <!-- Upload Form -->
+    <form action="{% url 'resume_upload' %}" method="post" enctype="multipart/form-data" 
+          class="flex flex-col items-center space-y-4 w-full">
+        {% csrf_token %}
+        
+        <!-- File upload label -->
+        <label for="file-upload" 
+            class="w-full flex flex-col items-center px-4 py-6 bg-gray-50 text-gray-600 rounded-lg border-2 border-dashed border-gray-300 cursor-pointer hover:bg-gray-100 hover:border-green-500 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                    d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12V4m0 8l-3-3m3 3l3-3" />
+            </svg>
+            <span class="font-medium">Drag & drop your file here</span>
+            <span class="text-sm text-gray-400">(or click to select)</span>
+            <input id="file-upload" type="file" name="file" accept=".pdf,.docx" class="hidden">
+        </label>
+
+        <!-- File name display code of java script -->
+        <p id="file-name" class="mt-2 text-sm text-gray-600"></p>
+
+        <script>
+        document.getElementById("file-upload").addEventListener("change", function(event) {
+            let fileName = event.target.files.length > 0 ? event.target.files[0].name : "";
+            document.getElementById("file-name").textContent = fileName;
+        });
+        </script>
+
+        <button type="submit"
+                class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-full font-semibold shadow-md transition duration-300">
+            Upload
+        </button>
+    </form>
+</div>
+
+</body>
+</html>

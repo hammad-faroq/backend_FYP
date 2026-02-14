@@ -1,0 +1,85 @@
+# Virtual environments (ALL variations)
+venv/
+venv
+env/
+env
+ENV/
+.venv/
+.venv
+.Python
+
+# Frontend
+frontend/
+frontend
+TalentMatch/frontend/
+TalentMatch/frontend
+node_modules/
+node_modules
+
+# Git (HUGE)
+.git/
+.git
+
+# Media files
+media/
+resumedata/
+staticfiles/
+static/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyc
+*$py.class
+*.so
+
+# Database files
+*.sqlite3
+*.db
+db.sqlite3
+db.sqlite3-journal
+*.sql
+*.dump
+
+# Environment variables
+.env
+.env.*
+*.env
+
+# Logs
+*.log
+resume_parser.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# VSCode/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Misc
+*.tmp
+*.bak
+*.pth
+*.bin
+*.h5
+*.ckpt
+*.pkl
+*.joblib
+*.zip
+*.tar.gz
+*.rar
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/

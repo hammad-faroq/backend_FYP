@@ -1,0 +1,113 @@
+
+<!DOCTYPE html>
+<html>
+ {% if errors %}
+  <div class="text-red-600 mb-4">
+      <ul>
+      {% for field, field_errors in errors.items %}
+          <li><strong>{{ field }}:</strong> {{ field_errors|join:", " }}</li>
+      {% endfor %}
+      </ul>
+  </div>
+{% endif %}
+<head>
+    <title>Enter Resume Info</title>
+    {% load static %}
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-r from-blue-50 via-blue-100 to-blue-50 min-h-screen flex justify-center py-12">
+
+    <div class="w-full max-w-4xl space-y-6">
+
+        <!-- Header -->
+        <div class="bg-blue-200 p-6 rounded-lg shadow-lg text-center">
+            <h2 class="text-3xl font-bold text-blue-900 mb-2">Fill Resume Info</h2>
+            <h3 class="text-lg text-blue-800">You have selected: {{ selected_template|title }}</h3>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="space-y-6">
+            {% csrf_token %}
+
+            <!-- Personal Info Section -->
+            <div class="bg-blue-50 p-6 rounded-lg shadow-md space-y-4">
+                <h4 class="text-xl font-semibold text-blue-900 border-b border-blue-300 pb-2 mb-4">Personal Information</h4>
+
+                <div>
+                    <label class="block font-medium text-blue-800 mb-1" for="{{ form.profile_image.id_for_label }}">Profile Image</label>
+                    {{ form.profile_image }}
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" name="full_name" placeholder="Full Name" class="p-3 border border-blue-300 rounded w-full focus:ring-2 focus:ring-blue-400" />
+                    <input type="text" name="profession" placeholder="Profession" class="p-3 border border-blue-300 rounded w-full focus:ring-2 focus:ring-blue-400" />
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="email" name="email" placeholder="Email" class="p-3 border border-blue-300 rounded w-full focus:ring-2 focus:ring-blue-400" />
+                    <input type="text" name="linkedin" placeholder="LinkedIn" class="p-3 border border-blue-300 rounded w-full focus:ring-2 focus:ring-blue-400" />
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" name="phone" placeholder="Phone" class="p-3 border border-blue-300 rounded w-full focus:ring-2 focus:ring-blue-400" />
+                    <input type="text" name="github" placeholder="Github" class="p-3 border border-blue-300 rounded w-full focus:ring-2 focus:ring-blue-400" />
+                </div>
+                <textarea name="interests" placeholder="Interests" rows="3" class ="w-full p-3 border border-blue-300 rounded focus:ring-2 focus:ring-blue-400"></textarea>
+                <textarea name="profile" placeholder="Profile" rows="3" class="w-full p-3 border border-blue-300 rounded focus:ring-2 focus:ring-blue-400"></textarea>
+                <textarea name="additional_info" placeholder="Additional Info" rows="3" class="w-full p-3 border border-blue-300 rounded focus:ring-2 focus:ring-blue-400"></textarea>
+            </div>
+
+            <!-- Skills Section -->
+            <div class="bg-blue-50 p-6 rounded-lg shadow-md space-y-4">
+                <h4 class="text-xl font-semibold text-blue-500 border-b border-blue-300 pb-2 mb-4">Skills</h4>
+                <div id="skills-container" class="space-y-2">
+                    <input type="text" name="skills" placeholder="e.g. Python" class="w-full p-3 border border-blue-300 rounded focus:ring-2 focus:ring-blue-400" />
+                </div>
+                <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-400 transition" onclick="addSkill()">+ Add Skill</button>
+            </div>
+
+            <!-- Education Section -->
+            <div class="bg-blue-50 p-6 rounded-lg shadow-md space-y-4">
+                <h4 class="text-xl font-semibold text-blue-500 border-b border-blue-300 pb-2 mb-4">Education</h4>
+                <div id="education-container" class="space-y-4">
+                    <div class="edu-entry flex flex-col md:flex-row gap-4">
+                        <input type="text" name="edu_institution" placeholder="Institution" class="flex-1 p-3 border border-blue-300 rounded focus:ring-2 focus:ring-blue-400" />
+                        <input type="text" name="edu_level" placeholder="Level" class="flex-1 p-3 border border-blue-300 rounded focus:ring-2 focus:ring-blue-400" />
+                        <input type="text" name="edu_detail" placeholder="Details" class="flex-1 p-3 border border-blue-300 rounded focus:ring-2 focus:ring-blue-400" />
+                    </div>
+                </div>
+                <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-400 transition" onclick="addEducation()">+ Add Education</button>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="w-full px-6 py-3 bg-blue-400 text-white font-bold rounded hover:bg-blue-600 transition">Generate Resume</button>
+        </form>
+    </div>
+
+    <script>
+        function addSkill() {
+            const container = document.getElementById('skills-container');
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.name = 'skills';
+            input.placeholder = 'e.g. Communication';
+            input.className = 'w-full p-3 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400';
+            container.appendChild(input);
+        }
+
+        function addEducation() {
+            const container = document.getElementById('education-container');
+
+            const wrapper = document.createElement('div');
+            wrapper.classList.add('edu-entry', 'flex', 'flex-col', 'md:flex-row', 'gap-4');
+
+            wrapper.innerHTML = `
+                <input type="text" name="edu_institution" placeholder="Institution" class="flex-1 p-3 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                <input type="text" name="edu_level" placeholder="Level" class="flex-1 p-3 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                <input type="text" name="edu_detail" placeholder="Details" class="flex-1 p-3 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400" />
+            `;
+
+            container.appendChild(wrapper);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+*.pyc
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Django stuff
+*.sqlite3
+media/
+static/
+resumedata/
+
+# Environment variables
+.env
+*.env
+
+# Logs
+*.log
+
+# Node / Frontend
+node_modules/
+frontend/
+
+# VSCode / IDE
+.vscode/
+.idea/
+
+# Git itself
+.git/

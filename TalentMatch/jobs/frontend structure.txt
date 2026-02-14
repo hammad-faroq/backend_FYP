@@ -1,0 +1,11 @@
+frontend/
+├── src/
+│   ├── services/
+│   │   └── jobService.js          ← CREATED THIS FILE
+│   ├── components/
+│   │   ├── JobPostingForm.js       ← CREATED THIS FILE
+│   │   └── JobListComponent.js     ← CREATED THIS FILE
+│   ├── pages/
+│   │   └── JobsPage.js             ← CREATED THIS FILE
+│   └── styles/
+│       └── jobs.css                ← CREATED THIS FILE 

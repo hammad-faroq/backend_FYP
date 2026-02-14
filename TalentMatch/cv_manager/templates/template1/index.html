@@ -1,0 +1,140 @@
+    {% load static %}
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>{{ cv.full_name }}</title>
+
+        <meta name="viewport" content="width=device-width"/>
+        <meta name="description" content="{{ cv.full_name }}'s CV"/>
+        <meta charset="UTF-8"> 
+
+        <link type="text/css" rel="stylesheet" href="{% static 'css/style.css' %}">
+        <link href="https://fonts.googleapis.com/css?family=Rokkitt:400,700|Lato:400,300" rel="stylesheet" type="text/css">
+        <style>
+            /* Hide download button in PDF */
+            @media print {
+                .no-print {
+                    display: none !important;
+                }
+            }
+        </style>
+    </head>
+
+    <body id="top">
+    <div id="cv" class="instaFade">
+        <div class="mainDetails">
+        <div id="headshot" class="quickFade flex justify-center my-6">
+        {% if for_pdf %}
+            {% if cv.profile_image %}
+                <img src="file://{{ cv.profile_image.path }}" alt="" style="width:150px; height:150px; border-radius:50%;" />
+            {% else %}
+                <img src="file://{{ BASE_DIR }}/static/images/headshot.jpg" alt="" style="width:150px; height:150px; border-radius:50%;" />
+        {% endif %}
+        {% else %}
+            {% if cv.profile_image %}
+                <img src="{{ cv.profile_image.url }}" alt="" class="rounded-full border-2 border-gray-300 w-36 h-36 object-cover" />
+            {% else %}
+                <img src="{% static 'images/headshot.jpg' %}" alt="" class="rounded-full border-2 border-gray-300 w-36 h-36 object-cover" />
+        {% endif %}
+        {% endif %}
+
+    </div>
+
+        <div class="infoBlock">
+            <div id="name">
+                <h1 class="quickFade delayTwo">{{ cv.full_name }}</h1>
+                <h2 class="quickFade delayThree">{{ cv.profession }}</h2>
+            </div>
+
+            <div id="contactDetails" class="quickFade delayFour" style="margin-top: 10px;">
+                <ul>
+                    <li>Email: <a href="mailto:{{ cv.email }}" target="_blank">{{ cv.email }}</a></li>
+                    <li>LinkedIn: <a href="{{ cv.linkedin }}" target="_blank">{{ cv.linkedin }}</a></li>
+                    <li>Github: <a href="{{ cv.github }}" target="_blank">{{ cv.github }}</a></li>
+                    <li>Phone: {{ cv.phone }}</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="clear"></div>
+    </div>
+
+        <div id="mainArea" class="quickFade delayFive">
+            <section>
+                <article>
+                    <div class="sectionTitle">
+                        <h1>Personal Profile</h1>
+                    </div>
+                    <div class="sectionContent">
+                        <p>{{ cv.profile }}</p>
+                    </div>
+                </article>
+                <div class="clear"></div>
+            </section>
+
+            <section>
+                <div class="sectionTitle">
+                    <h1>Key Skills</h1>
+                </div>
+                <div class="sectionContent">
+                    <ul class="keySkills">
+                        {% for skill in cv.skills.all %}
+                            <li>{{ skill.name }}</li>
+                        {% endfor %}
+                    </ul>
+
+                </div>
+                <div class="clear"></div>
+            </section>
+
+            <section>
+                <div class="sectionTitle">
+                    <h1>Education</h1>
+                </div>
+                <div class="sectionContent">
+                    {% for edu in cv.education.all %}
+                        <article>
+                            <h2>{{ edu.institution }}</h2>
+                            <p class="subDetails">{{ edu.level }}</p>
+                            <p>{{ edu.detail }}</p>
+                        </article>
+                    {% endfor %}
+                </div>
+                <div class="clear"></div>
+            </section>
+
+
+            <section>
+                <div class="sectionTitle">
+                    <h1>Interests</h1>
+                </div>
+                <div class="sectionContent">
+                    <article>
+                        <p>{{ cv.interests }}</p>
+                    </article>
+                </div>
+                <div class="clear"></div>
+            </section>
+
+            <section>
+                <div class="sectionTitle">
+                    <h1>Additional Information</h1>
+                </div>
+                <div class="sectionContent">
+                    <article>
+                        <p>{{ cv.additional_info }}</p>
+                    </article>
+                </div>
+                <div class="clear"></div>
+            </section>
+        </div>
+    </div>
+    <div class="no-print" style="text-align:center; margin-top: 30px;">
+        <a href="{% url 'resume_pdf1' cv.id %}" 
+             style="padding: 10px 20px; background-color: #cf8a05; color: white; text-decoration: none;">
+                 ⬇ Download as PDF
+        </a>
+
+
+    </body>
+    </html>
