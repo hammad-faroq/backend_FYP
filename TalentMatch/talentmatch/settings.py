@@ -215,11 +215,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+import environ
 import os
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+# Load the .env file
+env = environ.Env()
+environ.Env.read_env()  # <-- reads .env from the current working directory
+
+GROQ_API_KEY = env("GROQ_API_KEY")  # now available everywhere
+
+# Optional: check
 if not GROQ_API_KEY:
     raise ValueError("❌ GROQ_API_KEY is missing. Check your .env file or environment variables.")
+
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
 
