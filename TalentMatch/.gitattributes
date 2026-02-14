@@ -1,1 +1,2 @@
 ranking/ml_models/*.pkl filter=lfs diff=lfs merge=lfs -text
+resumedata/models/* filter=lfs diff=lfs merge=lfs -text
