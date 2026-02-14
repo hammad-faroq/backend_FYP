@@ -91,10 +91,14 @@ TEMPLATES = [
         },
     },
 ]
+# CSRF_TRUSTED_ORIGINS = [
+#     "http://localhost:3000",
+#     "http://127.0.0.1:3000",
+# ]
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
+    "https://frontend-lg7z-pvle9vtmc-hammad-farooqs-projects-8a095925.vercel.app",
 ]
+
 
 WSGI_APPLICATION = 'talentmatch.wsgi.application'
 
@@ -221,7 +225,8 @@ ML_MODELS_DIR = os.path.join(BASE_DIR, "resumedata/models")
 RESUME_RANKER_MODEL_PATH = os.path.join(ML_MODELS_DIR, "resume_ranker_model.pkl")
 EMBEDDING_MODEL_PATH = os.path.join(ML_MODELS_DIR, "embedding_model.pkl")
 
-FRONTEND_URL = 'http://localhost:3000'
+# FRONTEND_URL = 'http://localhost:3000'
+FRONTEND_URL = 'https://frontend-lg7z-pvle9vtmc-hammad-farooqs-projects-8a095925.vercel.app/'
 DEFAULT_FROM_EMAIL = 'talentmatch_ai@gmail.com'
 
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')  # Get from environment variable

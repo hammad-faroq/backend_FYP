@@ -1,20 +1,6 @@
 version: '3.9'
 
 services:
-  db:
-    image: mysql:8.0
-    container_name: talentmatch_db
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: talentmatch
-      MYSQL_USER: django
-      MYSQL_PASSWORD: django123
-    ports:
-      - "3306:3306"
-    volumes:
-      - db_data:/var/lib/mysql
-
   qdrant:
     image: qdrant/qdrant
     container_name: talentmatch_qdrant
@@ -29,24 +15,21 @@ services:
       - qdrant_data:/qdrant/storage
 
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: talentmatch_web
     command: /app/entrypoint.sh
     environment:
-      DB_HOST: db
-      DB_NAME: talentmatch
-      DB_USER: django
-      DB_PASSWORD: django123
+      DATABASE_URL: "mysql://root:iBkwdbDgAQxKHEjQuaBatfKBsTxduWOh@yamanote.proxy.rlwy.net:39544/railway"
       QDRANT_URL: http://qdrant:6333
       SECRET_KEY: "django-insecure-u=qygnh3ne%9)$8)*lz^b#b91*^n**mmm8x#!q1p7bv8lchs$@"
     ports:
       - "8000:8000"
     depends_on:
-      - db
       - qdrant
     volumes:
       - .:/app
 
 volumes:
-  db_data:
   qdrant_data:

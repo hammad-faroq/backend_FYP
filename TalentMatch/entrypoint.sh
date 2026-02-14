@@ -34,8 +34,9 @@ echo "✓ Static files collected!"
 
 echo "=== Starting Django with Gunicorn ==="
 exec gunicorn talentmatch.wsgi:application \
-    --bind 0.0.0.0:8000 \
+    --bind 0.0.0.0:$PORT \
     --workers 4 \
     --timeout 120 \
     --access-logfile - \
     --error-logfile -
+
