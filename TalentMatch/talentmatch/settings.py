@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("SECRET_KEY")
+# SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -213,23 +213,39 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
+import os
+import environ
+
+# Initialize environ
+env = environ.Env()
+environ.Env.read_env()  # only needed if you want local .env support
+
+# Now fetch keys safely
+GROQ_API_KEY = env("GROQ_API_KEY")  # will now read Railway environment
+SECRET_KEY = env("SECRET_KEY")
+HUGGINGFACE_API_URL = env("HUGGINGFACE_API_URL")
+HUGGINGFACE_TOKEN = env("HUGGINGFACE_TOKEN")
+QDRANT_URL = env("QDRANT_URL")
+QDRANT_API_KEY = env("QDRANT_API_KEY")
+DATABASE_URL = env("DATABASE_URL")
+PORT = env("PORT", default="8000")  # fallback
 
 # GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-import environ
-import os
+# import environ
+# import os
 
 # Load the .env file
-env = environ.Env()
-environ.Env.read_env()  # <-- reads .env from the current working directory
+# env = environ.Env()
+# environ.Env.read_env()  # <-- reads .env from the current working directory
 
-GROQ_API_KEY = env("GROQ_API_KEY")  # now available everywhere
+# GROQ_API_KEY = env("GROQ_API_KEY")  # now available everywhere
 
 # Optional: check
-if not GROQ_API_KEY:
-    raise ValueError("❌ GROQ_API_KEY is missing. Check your .env file or environment variables.")
+# if not GROQ_API_KEY:
+#     raise ValueError("❌ GROQ_API_KEY is missing. Check your .env file or environment variables.")
 
-QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
-QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
+# QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
+# QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
 
 
 import os
@@ -243,7 +259,7 @@ EMBEDDING_MODEL_PATH = os.path.join(ML_MODELS_DIR, "embedding_model.pkl")
 FRONTEND_URL = 'https://frontend-lg7z-pvle9vtmc-hammad-farooqs-projects-8a095925.vercel.app/'
 DEFAULT_FROM_EMAIL = 'talentmatch_ai@gmail.com'
 
-OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')  # Get from environment variable
+# OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')  # Get from environment variable
 
 
 # REST Framework settings
