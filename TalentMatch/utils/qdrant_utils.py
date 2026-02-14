@@ -2,9 +2,17 @@
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import PointStruct
+import os
 
 # Connect to your local Qdrant instance (running on Docker)
-qdrant = QdrantClient(host="localhost", port=6333)
+# qdrant = QdrantClient(host="localhost", port=6333)
+
+
+qdrant = QdrantClient(
+    url=os.getenv("QDRANT_URL"),
+    api_key=os.getenv("QDRANT_API_KEY")
+)
+
 
 
 def insert_job_vector(job_id: int, vector: list[float], metadata: dict) -> None:

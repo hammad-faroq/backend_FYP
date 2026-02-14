@@ -8,15 +8,18 @@ from difflib import SequenceMatcher
 from jobs.models import Job
 from django.conf import settings
 
-# ✅ Reuse Qdrant settings from Django
-QDRANT_HOST = getattr(settings, "QDRANT_HOST", "localhost")
-QDRANT_PORT = getattr(settings, "QDRANT_PORT", 6333)
+# ✅ Use Qdrant Cloud settings from env
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 COLLECTION_NAME = "final_job_embeddings"
 RESUME_COLLECTION = "final_resume"
 
+# ✅ Initialize Qdrant cloud client
+qdrant = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+
 # ✅ Initialize BERT model
 bert_model = SentenceTransformer("all-MiniLM-L6-v2")
-qdrant = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+# qdrant = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
 # ------------------------- RESUME TEXT EXTRACTION -------------------------
 def extract_text_from_resume(file_path):

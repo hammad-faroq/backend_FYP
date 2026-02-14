@@ -1,11 +1,11 @@
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 from django.conf import settings
+import os
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 
-client = QdrantClient(
-    host=getattr(settings, "QDRANT_HOST", "localhost"),
-    port=getattr(settings, "QDRANT_PORT", 6333),
-)
+client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
 
 COLLECTION_NAME = "job_embeddings"
 

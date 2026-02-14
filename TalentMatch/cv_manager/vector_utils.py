@@ -3,9 +3,12 @@ from qdrant_client.http import models
 from sentence_transformers import SentenceTransformer
 from django.conf import settings
 import uuid
+import os
 
 # Initialize Qdrant and SentenceTransformer
-qdrant = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT)
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+qdrant = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 COLLECTION_NAME = "final_resume"

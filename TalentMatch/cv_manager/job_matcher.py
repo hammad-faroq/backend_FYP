@@ -6,12 +6,13 @@ from jobs.models import Job
 from django.conf import settings
 from datetime import datetime
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
 # ----------------- Settings -----------------
-QDRANT_HOST = getattr(settings, "QDRANT_HOST", "localhost")
-QDRANT_PORT = getattr(settings, "QDRANT_PORT", 6333)
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 JOB_COLLECTION = "final_job"
 
 # GROQ settings
@@ -77,7 +78,7 @@ def find_similar_jobs(user, limit=5, use_groq=False, save_to_db=True):
             return {"success": False, "message": "Embedding returned empty.", "matched_jobs": []}
 
         # ---------------- Connect to Qdrant ----------------
-        client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+        client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
 
         # Filter only open jobs
         today = datetime.now().date()

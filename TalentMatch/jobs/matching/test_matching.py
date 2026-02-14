@@ -69,4 +69,4 @@ class MatchFilterTestCase(TestCase):
                 'location': 'Lahore, Pakistan',
                 'application_deadline': None
             },
-            
+        ]

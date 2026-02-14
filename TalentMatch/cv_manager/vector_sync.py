@@ -5,12 +5,12 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from jobs.models import Job
 from django.conf import settings
+import os
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 
 # 1️⃣ Connect to Qdrant
-qdrant = QdrantClient(
-    host=getattr(settings, "QDRANT_HOST", "localhost"),
-    port=getattr(settings, "QDRANT_PORT", 6333)
-)
+qdrant = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
 
 # 2️⃣ Load sentence transformer
 model = SentenceTransformer("all-MiniLM-L6-v2")  # Must match resume embeddings

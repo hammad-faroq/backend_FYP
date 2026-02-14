@@ -2,9 +2,12 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 from sentence_transformers import SentenceTransformer
 from jobs.models import Job
+import os
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 
 def sync_jobs_to_qdrant():
-    client = QdrantClient(host="localhost", port=6333)
+    client =  QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
     model = SentenceTransformer("all-MiniLM-L6-v2")
 
     jobs = Job.objects.all()
