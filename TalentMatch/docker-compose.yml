@@ -1,19 +1,6 @@
 version: '3.9'
 
 services:
-  qdrant:
-    image: qdrant/qdrant
-    container_name: talentmatch_qdrant
-    restart: always
-    environment:
-      QDRANT__SERVICE__GRPC_PORT: 6334
-      QDRANT__SERVICE__HTTP_PORT: 6333
-    ports:
-      - "6333:6333"
-      - "6334:6334"
-    volumes:
-      - qdrant_data:/qdrant/storage
-
   web:
     build:
       context: .
@@ -22,14 +9,11 @@ services:
     command: /app/entrypoint.sh
     environment:
       DATABASE_URL: "mysql://root:iBkwdbDgAQxKHEjQuaBatfKBsTxduWOh@yamanote.proxy.rlwy.net:39544/railway"
-      QDRANT_URL: http://qdrant:6333
+      QDRANT_URL: "https://3f0e6e6f-1dd1-4475-a2e0-e14a5550b058.eu-central-1-0.aws.cloud.qdrant.io"
+      QDRANT_API_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.iNWU5jh2EyAG_YaPszV7t4rrja93DnQAPwBQcMzTyzM"
       SECRET_KEY: "django-insecure-u=qygnh3ne%9)$8)*lz^b#b91*^n**mmm8x#!q1p7bv8lchs$@"
+      PORT: 8000
     ports:
       - "8000:8000"
-    depends_on:
-      - qdrant
     volumes:
       - .:/app
-
-volumes:
-  qdrant_data:

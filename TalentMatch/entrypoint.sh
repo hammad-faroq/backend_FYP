@@ -36,24 +36,15 @@ done
 echo "✓ MySQL is connected!"
 
 ########################################
-# Wait for Qdrant
+# Optional: Test Qdrant Cloud connectivity
 ########################################
 
-echo "Waiting for Qdrant to be ready..."
-
-retry_count=0
-
-until curl -sf "${QDRANT_URL}/collections" > /dev/null 2>&1; do
-    retry_count=$((retry_count + 1))
-    if [ $retry_count -ge $max_retries ]; then
-        echo "ERROR: Qdrant did not become ready in time"
-        exit 1
-    fi
-    echo "Waiting for Qdrant... attempt $retry_count/$max_retries"
-    sleep 2
-done
-
-echo "✓ Qdrant is connected!"
+echo "Checking Qdrant Cloud connectivity..."
+if curl -sf "${QDRANT_URL}/collections" > /dev/null 2>&1; then
+    echo "✓ Qdrant Cloud is reachable!"
+else
+    echo "⚠️ Warning: Cannot reach Qdrant Cloud. Check URL/API key."
+fi
 
 ########################################
 # Django setup
