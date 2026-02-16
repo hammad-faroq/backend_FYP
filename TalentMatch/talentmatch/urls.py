@@ -32,7 +32,7 @@ urlpatterns = [
     # path('jobs/', include('jobs.urls')),
     path('api/jobs/', include('jobs.urls')),
     path('ranking/', include('ranking.urls')),
-    path('interview/', include('interview.urls')),
+    path('api/interview/', include('interview.urls')),
     path('api/', include('accounts.urls')),
     path('api/resumedata/', include('resumedata.urls')),
     path('api/notifications/', include('notifications.urls'))
