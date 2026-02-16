@@ -212,6 +212,11 @@ LOGGING = {
 import os
 from dotenv import load_dotenv
 
+ML_MODELS_DIR = os.path.join(BASE_DIR, "resumedata/models")
+
+RESUME_RANKER_MODEL_PATH = os.path.join(ML_MODELS_DIR, "resume_ranker_model.pkl")
+EMBEDDING_MODEL_PATH = os.path.join(ML_MODELS_DIR, "embedding_model.pkl")
+
 load_dotenv()
 import os
 import environ
