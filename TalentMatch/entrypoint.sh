@@ -53,6 +53,10 @@ echo "✓ Qdrant Cloud check finished!"
 ########################################
 # Django setup
 ########################################
+echo "Creating new migrations..."
+python manage.py makemigrations
+echo "✓ Migrations created!"
+
 echo "Applying database migrations..."
 python manage.py migrate --noinput
 echo "✓ Migrations applied!"
