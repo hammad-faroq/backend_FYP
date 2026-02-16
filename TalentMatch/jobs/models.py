@@ -40,6 +40,8 @@ class JobApplication(models.Model):
     project_categories = models.JSONField(default=list, blank=True)
     # jobs/models.py
     custom_model_score = models.FloatField(default=0.0)
+    gradio_match_score = models.FloatField(default=0, null=True, blank=True)
+    gradio_analysis = models.JSONField(default=dict, null=True, blank=True)
 
 
     def __str__(self):

@@ -57,12 +57,15 @@ class JobApplicationSerializer(serializers.ModelSerializer):
             "total_experience",
             "cgpa",
             "project_categories",
+            "gradio_match_score",
+            "gradio_analysis",
             # Add any other fields from your model
         ]
         read_only_fields = [
             "applied_at", "rank_score", "groq_rank", "bert_similarity",
             "custom_model_score", "skills", "total_experience", "cgpa",
-            "project_categories"
+            "project_categories","gradio_match_score",
+            "gradio_analysis",
         ]
 
     def get_applicant_name(self, obj):
