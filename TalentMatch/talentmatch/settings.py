@@ -69,7 +69,6 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True
 
 
 ROOT_URLCONF = 'talentmatch.urls'
@@ -93,9 +92,12 @@ TEMPLATES = [
 # STEP 5 CHANGE: Add Railway domain to CSRF
 # ============================================
 CSRF_TRUSTED_ORIGINS = [
-    FRONTEND_URL,
+    "https://tallent-match-ai.vercel.app",
     "https://*.railway.app",
 ]
+
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
 WSGI_APPLICATION = 'talentmatch.wsgi.application'
 
