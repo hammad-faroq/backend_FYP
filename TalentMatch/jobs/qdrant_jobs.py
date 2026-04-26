@@ -8,9 +8,16 @@ client = QdrantClient(
     url=settings.QDRANT_URL,
     api_key=settings.QDRANT_API_KEY
 )
-model = SentenceTransformer("all-MiniLM-L6-v2")
+_model = None  # don't load yet!
+
+def get_model():
+    global _model
+    if _model is None:
+        _model = SentenceTransformer("all-MiniLM-L6-v2")
+    return _model
 
 COLLECTION_NAME = "JOBS"
+
 
 def sync_jobs_to_qdrant():
     # create collection only if not exists

@@ -1,44 +1,27 @@
 import os
-import joblib
-import pickle
-from django.conf import settings
+from sentence_transformers import SentenceTransformer, util
 from .analyzer import extract_text_from_resume
 
-resume_ranker_model = None
-embedding_model = None
+_embedding_model = None
 
-
-def load_model_safe(path):
-    try:
-        return joblib.load(path)
-    except KeyError:
-        # fallback for cross-Python-version pickle issues
-        with open(path, 'rb') as f:
-            return pickle.load(f, encoding='latin-1')
-
-
-def load_models():
-    global resume_ranker_model, embedding_model
-    print("MODEL PATH:", settings.RESUME_RANKER_MODEL_PATH)
-    print("FILE EXISTS:", os.path.exists(settings.RESUME_RANKER_MODEL_PATH))
-
-    if resume_ranker_model is None:
-        resume_ranker_model = load_model_safe(settings.RESUME_RANKER_MODEL_PATH)
-
-    if embedding_model is None:
-        embedding_model = load_model_safe(settings.EMBEDDING_MODEL_PATH)
-        
-
+def get_embedding_model():
+    global _embedding_model
+    if _embedding_model is None:
+        _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+    return _embedding_model
 
 def predict_resume_score(resume_path, job_description):
-    load_models()
-
+    model = get_embedding_model()
+    
     resume_text = extract_text_from_resume(resume_path)
     if not resume_text:
         return 0.0
 
-    resume_vec = embedding_model.encode([resume_text])[0]
-    features = resume_vec.reshape(1, -1)
-    score = resume_ranker_model.predict(features)[0]
-
-    return round(float(score), 2)
+    resume_vec = model.encode(resume_text, convert_to_tensor=True)
+    job_vec = model.encode(job_description, convert_to_tensor=True)
+    
+    score = util.cos_sim(resume_vec, job_vec).item()
+    
+    # convert to 0-100
+    score = round((score + 1) / 2 * 100, 2)
+    return score
