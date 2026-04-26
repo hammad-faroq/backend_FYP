@@ -65,9 +65,8 @@ def api_register(request):
 # ─────────────────────────────────────────────────────────────
 # API-NEW-01: SEND OTP  →  POST /auth/send-otp/
 # ─────────────────────────────────────────────────────────────
-import socket
-from django.core.mail import send_mail
-from django.core.cache import cache
+import resend
+from django.conf import settings
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -92,27 +91,25 @@ def api_send_otp(request):
     cache.set(cache_key, otp, timeout=300)
     cache.set(rate_key, True, timeout=60)
 
-    # Send email
     try:
-        socket.setdefaulttimeout(10)  # ← 10 second timeout
-        send_mail(
-            subject="Your TalentMatch AI Verification Code",
-            message=(
+        resend.api_key = settings.RESEND_API_KEY
+        resend.Emails.send({
+            "from": "TalentMatch AI <onboarding@resend.dev>",
+            "to": email,
+            "subject": "Your TalentMatch AI Verification Code",
+            "text": (
                 f"Hello,\n\n"
                 f"Your verification code is: {otp}\n\n"
                 f"This code expires in 5 minutes.\n"
                 f"If you did not request this, please ignore this email.\n\n"
                 f"— TalentMatch AI Team"
-            ),
-            from_email=None,
-            recipient_list=[email],
-            fail_silently=False,
-        )
+            )
+        })
     except Exception as e:
         cache.delete(cache_key)
         cache.delete(rate_key)
         return Response(
-            {"error": f"Email failed: {str(e)}"},  # ← shows exact error!
+            {"error": f"Email failed: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
