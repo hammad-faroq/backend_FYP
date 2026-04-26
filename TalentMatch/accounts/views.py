@@ -65,25 +65,21 @@ def api_register(request):
 # ─────────────────────────────────────────────────────────────
 # API-NEW-01: SEND OTP  →  POST /auth/send-otp/
 # ─────────────────────────────────────────────────────────────
+import socket
+from django.core.mail import send_mail
+from django.core.cache import cache
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def api_send_otp(request):
-    """
-    Generates a 6-digit OTP, stores it in Django cache for 5 minutes,
-    and emails it to the user.
-    Called BEFORE registration — email must NOT already exist.
-    """
     email = request.data.get('email', '').strip().lower()
 
     if not email:
         return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Block if email is already registered
     if User.objects.filter(email=email).exists():
         return Response({"error": "An account with this email already exists."}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Rate limiting: block if OTP was sent less than 60 seconds ago
     rate_key = f"otp_rate_{email}"
     if cache.get(rate_key):
         return Response(
@@ -91,16 +87,14 @@ def api_send_otp(request):
             status=status.HTTP_429_TOO_MANY_REQUESTS
         )
 
-    # Generate and store OTP (expires in 5 minutes = 300 seconds)
     otp = generate_otp()
     cache_key = f"otp_{email}"
     cache.set(cache_key, otp, timeout=300)
-
-    # Set rate-limit flag for 60 seconds
     cache.set(rate_key, True, timeout=60)
 
     # Send email
     try:
+        socket.setdefaulttimeout(10)  # ← 10 second timeout
         send_mail(
             subject="Your TalentMatch AI Verification Code",
             message=(
@@ -110,24 +104,19 @@ def api_send_otp(request):
                 f"If you did not request this, please ignore this email.\n\n"
                 f"— TalentMatch AI Team"
             ),
-            from_email=None,   # Uses DEFAULT_FROM_EMAIL from settings.py
+            from_email=None,
             recipient_list=[email],
             fail_silently=False,
         )
     except Exception as e:
-        # Clean up cache if email fails so user can retry
         cache.delete(cache_key)
         cache.delete(rate_key)
         return Response(
-            {"error": "Failed to send email. Please try again."},
+            {"error": f"Email failed: {str(e)}"},  # ← shows exact error!
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
-    return Response({"message": "OTP sent successfully."}, status=status.HTTP_200_OK)
-
-
-# ─────────────────────────────────────────────────────────────
-# API-NEW-02: VERIFY OTP  →  POST /auth/verify-otp/
+    return Response({"message": "OTP sent successfully."}, status=status.HTTP_200_OK)# API-NEW-02: VERIFY OTP  →  POST /auth/verify-otp/
 # ─────────────────────────────────────────────────────────────
 
 @api_view(['POST'])
