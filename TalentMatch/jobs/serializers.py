@@ -33,6 +33,8 @@ class JobApplicationSerializer(serializers.ModelSerializer):
     last_name = serializers.SerializerMethodField()
     applicant_id = serializers.SerializerMethodField()
     job_title = serializers.SerializerMethodField()
+    gradio_match_score = serializers.FloatField(read_only=True)
+    gradio_analysis = serializers.JSONField(read_only=True)
 
     class Meta:
         model = JobApplication
@@ -53,19 +55,18 @@ class JobApplicationSerializer(serializers.ModelSerializer):
             "groq_rank",
             "bert_similarity",
             "custom_model_score",
+            "gradio_match_score",
+            "gradio_analysis",
             "skills",
             "total_experience",
             "cgpa",
             "project_categories",
-            "gradio_match_score",
-            "gradio_analysis",
             # Add any other fields from your model
         ]
         read_only_fields = [
             "applied_at", "rank_score", "groq_rank", "bert_similarity",
             "custom_model_score", "skills", "total_experience", "cgpa",
-            "project_categories","gradio_match_score",
-            "gradio_analysis",
+            "project_categories"
         ]
 
     def get_applicant_name(self, obj):

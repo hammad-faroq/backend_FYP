@@ -56,10 +56,10 @@ urlpatterns = [
     # ================= ADMIN =================
     path('admin/question-import/', views.ImportQuestionsView.as_view()),
     path('admin/analytics/', views.InterviewAnalyticsView.as_view()),
-    path('', include(router.urls)),
+
     # ✅ NOW: Generic UUID pattern (LAST, after all specific ones)
     path('<uuid:interview_id>/', views.GetInterviewDetailView.as_view(), name='interview-detail'),
     
     # ✅ FINALLY: Include router URLs (they have their own patterns)
-    
+    path('', include(router.urls)),
 ]

@@ -14,8 +14,8 @@ urlpatterns = [
     # Task 1.7: Account status check - FIXED URL
     path('account-status/', views.api_check_account_status, name='api_check_account_status'),
 
-    #path('check-status/', views.api_check_account_status, name='check_account_status'),
-    # Task 1.7: Account status check
-    # path('check-account-status/', views.api_check_account_status, name='api_check_account_status'),
+    path('change-password/', views.api_change_password, name='api_change_password'),
+    path('send-otp/',       views.api_send_otp,              name='api_send_otp'),
+    path('verify-otp/',     views.api_verify_otp,            name='api_verify_otp')
 
 ]

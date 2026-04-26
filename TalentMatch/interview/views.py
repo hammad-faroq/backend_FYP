@@ -1,7 +1,7 @@
 # interviews/views.py
 from uuid import UUID
 from django.utils import timezone
-from neo4j import Transaction
+# from neo4j import Transaction
 from rest_framework import viewsets, status, permissions, generics, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -33,22 +33,49 @@ from .filters import InterviewFilter, InterviewQuestionFilter
 #
 # ==================== VIEWSETS ====================
 
+# class InterviewCategoryViewSet(viewsets.ModelViewSet):
+#     """CRUD for interview categories"""
+#     queryset = InterviewCategory.objects.filter(is_active=True)
+#     serializer_class = InterviewCategorySerializer
+#     permission_classes = [permissions.IsAuthenticated]
+#     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+#     search_fields = ['name', 'description']
+    
+#     def get_queryset(self):
+#         """Filter categories by user role"""
+#         user = self.request.user
+#         if user.is_hr():
+#             return InterviewCategory.objects.filter(
+#                 Q(created_by=user) | Q(is_active=True)
+#             )
+#         return InterviewCategory.objects.filter(is_active=True)
 class InterviewCategoryViewSet(viewsets.ModelViewSet):
-    """CRUD for interview categories"""
     queryset = InterviewCategory.objects.filter(is_active=True)
     serializer_class = InterviewCategorySerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     search_fields = ['name', 'description']
-    
+
     def get_queryset(self):
-        """Filter categories by user role"""
-        user = self.request.user
-        if user.is_hr():
-            return InterviewCategory.objects.filter(
-                Q(created_by=user) | Q(is_active=True)
-            )
+
         return InterviewCategory.objects.filter(is_active=True)
+# class InterviewCategoryViewSet(viewsets.ModelViewSet):
+#     """CRUD for interview categories"""
+#     queryset = InterviewCategory.objects.filter(is_active=True)
+#     serializer_class = InterviewCategorySerializer
+#     permission_classes = [permissions.IsAuthenticated]
+#     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+#     search_fields = ['name', 'description']
+    
+#     def get_queryset(self):
+#         """Filter categories by user role"""
+#         user = self.request.user
+#         if user.is_hr():
+#             return InterviewCategory.objects.filter(
+#                 Q(created_by=user) | Q(is_active=True)
+#             )
+#         return InterviewCategory.objects.filter(is_active=True)
+
 
 class InterviewQuestionViewSet(viewsets.ModelViewSet):
     """CRUD for interview questions"""
@@ -967,6 +994,7 @@ class GetInterviewQuestionsView(APIView):
                     if interview.started_at:
                         end_time = interview.started_at + timezone.timedelta(minutes=interview.duration_minutes)
                         delta = end_time - timezone.now()
+                        
                         time_remaining = max(0, int(delta.total_seconds()))
                     else:
                         time_remaining = interview.duration_minutes * 60  # Full duration if not started yet
@@ -2272,18 +2300,33 @@ class CandidateInterviewPreparationView(APIView):
             if not job:
                 continue
 
-            # ✅ Cache per job
-            prep, created = InterviewPreparation.objects.get_or_create(
-                user=user,
-                job=job,
-                defaults={
-                    "preparation_data": generator.generate_preparation(
-                        job_title=job.title,
-                        job_description=job.description,
-                        company_name=job.company_name
-                    )
-                }
-            )
+            # # ✅ Cache per job
+            # prep, created = InterviewPreparation.objects.get_or_create(
+            #     user=user,
+            #     job=job,
+            #     defaults={
+            #         "preparation_data": generator.generate_preparation(
+            #             job_title=job.title,
+            #             job_description=job.description,
+            #             company_name=job.company_name
+            #         )
+            #     }
+            # )
+            prep = InterviewPreparation.objects.filter(user=user, job=job).first()
+
+            # Only call LLM if no data exists
+            if not prep:
+                preparation_data = generator.generate_preparation(
+                    job_title=job.title,
+                    job_description=job.description,
+                    company_name=job.company_name
+                )
+
+                prep = InterviewPreparation.objects.create(
+                    user=user,
+                    job=job,
+                    preparation_data=preparation_data
+                )
 
             results.append({
                 "job_id": job.id,
@@ -2301,7 +2344,44 @@ class CandidateInterviewPreparationView(APIView):
 # ======================================================
 # 🔁 GENERATE MORE QUESTIONS (POST)
 # ======================================================
+from django.utils import timezone
+from datetime import timedelta
 
+# class GenerateMoreInterviewQuestionsView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def post(self, request):
+#         user = request.user
+#         job_id = request.data.get("job_id")
+
+#         if user.role != "job_seeker":
+#             return Response({"error": "Unauthorized"}, status=403)
+
+#         prep = InterviewPreparation.objects.filter(
+#             user=user,
+#             job_id=job_id
+#         ).first()
+
+#         if not prep:
+#             return Response({"error": "Preparation not found"}, status=404)
+
+#         generator = InterviewPreparationGenerator()
+
+#         extra_questions = generator.generate_more_questions(
+#             job_title=prep.job.title,
+#             job_description=prep.job.description
+#         )
+
+#         # Merge into existing preparation
+#         for key, value in extra_questions.items():
+#             prep.preparation_data.setdefault(key, []).extend(value)
+
+#         prep.save()
+
+#         return Response({
+#             "message": "More questions generated successfully",
+#             "new_questions": extra_questions
+#         })
 class GenerateMoreInterviewQuestionsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -2320,29 +2400,113 @@ class GenerateMoreInterviewQuestionsView(APIView):
         if not prep:
             return Response({"error": "Preparation not found"}, status=404)
 
+        now = timezone.now()
         generator = InterviewPreparationGenerator()
 
+        # cooldown
+        if prep.last_more_generated_at:
+            if now.date() != prep.last_more_generated_at.date():
+                prep.more_generate_count = 0
+                # prep.last_more_generated_at = None
+                # prep.save()
+            else:
+                # if prep.last_more_generated_at is None:
+                #     time_diff =0
+                #     pass
+                # else:
+                    # print(prep.last_more_generated_at)
+                time_diff = now - prep.last_more_generated_at
+
+                if time_diff < timedelta(seconds=20):
+                    remaining = 20 - int(time_diff.total_seconds())
+
+                    return Response({
+                        "error": f"Please wait {remaining} seconds before generating again."
+                    }, status=429)
+
+        # daily limit
+        if (prep.more_generate_count or 0) >= 3:
+            return Response({
+            "error": "Daily limit reached. You can generate only 3 times per day per job. Please try again tomorrow."
+        }, status=429)
+
+        # generate
         extra_questions = generator.generate_more_questions(
             job_title=prep.job.title,
             job_description=prep.job.description
         )
+        # print(extra_questions)
 
-        # Merge into existing preparation
+        if extra_questions["technical_questions"]==extra_questions["behavioral_questions"]==extra_questions["scenario_questions"]==[]:
+            return Response({
+                "error": "AI failed to generate questions.Maybe Check your Internet Connection"
+            }, status=500)
+
+        # merge
         for key, value in extra_questions.items():
             prep.preparation_data.setdefault(key, []).extend(value)
 
+        # update
+        prep.last_more_generated_at = now
+        prep.more_generate_count = (prep.more_generate_count or 0) + 1
         prep.save()
 
         return Response({
             "message": "More questions generated successfully",
-            "new_questions": extra_questions
+            "new_questions": extra_questions,
+            "remaining_generations": 3 - prep.more_generate_count
         })
-
-
 # ======================================================
 # 💬 MOCK INTERVIEW CHAT (POST)
 # ======================================================
 
+# class InterviewChatView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def post(self, request):
+#         user = request.user
+#         job_id = request.data.get("job_id")
+#         message = request.data.get("message")
+
+#         if user.role != "job_seeker":
+#             return Response({"error": "Unauthorized"}, status=403)
+
+#         job = Job.objects.filter(id=job_id).first()
+#         if not job:
+#             return Response({"error": "Job not found"}, status=404)
+
+#         session, _ = InterviewChatSession.objects.get_or_create(
+#             user=user,
+#             job=job
+#         )
+
+#         InterviewChatMessage.objects.create(
+#             session=session,
+#             role="user",
+#             message=message
+#         )
+
+#         generator = InterviewPreparationGenerator()
+#         ai_reply = generator.chat_reply(
+#             job_title=job.title,
+#             job_description=job.description,
+#             user_message=message
+#         )
+
+#         InterviewChatMessage.objects.create(
+#             session=session,
+#             role="assistant",
+#             message=ai_reply
+#         )
+
+#         return Response({
+#             "reply": ai_reply
+#         })
+from django.utils import timezone
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from .models import InterviewChatUsage
 class InterviewChatView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -2358,41 +2522,208 @@ class InterviewChatView(APIView):
         if not job:
             return Response({"error": "Job not found"}, status=404)
 
+        # =========================
+        # SESSION (chat history only)
+        # =========================
         session, _ = InterviewChatSession.objects.get_or_create(
             user=user,
             job=job
         )
 
+        # =========================
+        # DAILY USAGE TRACKING
+        # =========================
+        today = timezone.now().date()
+
+        usage, _ = InterviewChatUsage.objects.get_or_create(
+            user=user,
+            job=job,
+            date=today
+        )
+
+        # =========================
+        # LIMIT CHECKS
+        # =========================
+        if usage.messages_used >= 20:
+            return Response(
+                {"error": "Daily chat limit reached (20 messages per day).Come Again Tomorrow"},
+                status=429
+            )
+
+        if usage.tokens_used >= 5000:
+            return Response(
+                {"error": "Daily token limit reached (5000 tokens)."},
+                status=429
+            )
+
+        # =========================
+        # SAVE USER MESSAGE
+        # =========================
         InterviewChatMessage.objects.create(
             session=session,
             role="user",
             message=message
         )
 
+        # =========================
+        # BUILD CHAT HISTORY
+        # =========================
+        messages_qs = session.messages.order_by("created_at")
+        chat_history = [
+            {"role": m.role, "content": m.message}
+            for m in messages_qs
+        ]
+
+        # =========================
+        # AI RESPONSE
+        # =========================
         generator = InterviewPreparationGenerator()
+
         ai_reply = generator.chat_reply(
             job_title=job.title,
             job_description=job.description,
-            user_message=message
+            chat_history=chat_history
         )
+        if ai_reply=="Sorry, I could not generate a reply at this time.May be Check your internet connection":
+            return Response({
+            "reply": ai_reply,
+        })
 
+        # =========================
+        # SAVE AI MESSAGE
+        # =========================
         InterviewChatMessage.objects.create(
             session=session,
             role="assistant",
             message=ai_reply
         )
 
+        # =========================
+        # TOKEN ESTIMATION
+        # =========================
+        def estimate_tokens(text):
+            return int(len(text.split()) * 1.3)
+
+        tokens_used = estimate_tokens(message) + estimate_tokens(ai_reply)
+
+        # =========================
+        # UPDATE DAILY USAGE
+        # =========================
+        usage.messages_used += 1
+        usage.tokens_used += tokens_used
+        usage.save()
+
         return Response({
-            "reply": ai_reply
+            "reply": ai_reply,
         })
-
-
-
 from interview.models import MockInterviewSession, MockInterviewAnswer
 from interview.services.mock_interview_ai import MockInterviewAI
 from jobs.models import Job
 
 
+# class MockInterviewSessionView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def post(self, request):
+#         user = request.user
+
+#         if user.role != "job_seeker":
+#             return Response({"error": "Unauthorized"}, status=403)
+
+#         job_id = request.data.get("job_id")
+#         answers = request.data.get("answers")  # Expect a list of {"question_index": int, "answer": str}
+
+#         job = Job.objects.filter(id=job_id).first()
+#         if not job:
+#             return Response({"error": "Job not found"}, status=404)
+
+#         ai = MockInterviewAI()
+
+#         today = timezone.now().date()
+
+#         today_sessions_count = MockInterviewSession.objects.filter(
+#             user=user,
+#             job=job,
+#             created_at__date=today
+#         ).count()
+
+#         if today_sessions_count >= 3:
+#             return Response({
+#                 "error": "Daily limit reached. You can only attempt 3 mock interviews per day."
+#             }, status=429)
+
+#         # 🔹 START NEW SESSION
+#         if not answers:
+#             questions = ai.generate_questions(
+#                 job_title=job.title,
+#                 job_description=job.description,
+#                 difficulty=request.data.get("difficulty", "medium"),
+#                 interview_type=request.data.get("interview_type", "technical"),
+#                 total_questions=request.data.get("total_questions", 10)
+#             )
+
+#             session = MockInterviewSession.objects.create(
+#                 user=user,
+#                 job=job,
+#                 questions=questions,
+#                 difficulty=request.data.get("difficulty", "medium"),
+#                 interview_type=request.data.get("interview_type", "technical"),
+#                 total_questions=len(questions)
+#             )
+
+#             return Response({
+#                 "session_id": session.id,
+#                 "questions": [ai.sanitize_question(q) for q in questions]
+#             })
+
+#         # 🔹 SUBMIT ALL ANSWERS
+#         session = MockInterviewSession.objects.filter(
+#             id=request.data.get("session_id"),
+#             user=user
+#         ).first()
+#         if not session:
+#             return Response({"error": "Session not found"}, status=404)
+
+#         results = []
+#         for item in answers:
+#             idx = item.get("question_index")
+#             ans = item.get("answer")
+#             if idx is None or idx >= len(session.questions):
+#                 continue
+
+#             question = session.questions[idx]
+#             evaluation = ai.evaluate_answer(
+#                 job_title=job.title,
+#                 job_description=job.description,
+#                 question=question,
+#                 candidate_answer=ans
+#             )
+
+#             MockInterviewAnswer.objects.update_or_create(
+#                 session=session,
+#                 question_index=idx,
+#                 defaults={
+#                     "question": ai.sanitize_question(question),
+#                     "answer": ans,
+#                     "feedback": evaluation["feedback"],
+#                     "score": evaluation["score"]
+#                 }
+#             )
+
+#             results.append({
+#                 "question": question["question"],
+#                 "answer": ans,
+#                 "feedback": evaluation["feedback"],
+#                 "score": evaluation["score"]
+#             })
+
+#         session.is_completed = True
+#         session.save()
+
+#         return Response({
+#             "completed": True,
+#             "results": results
+#         })
 class MockInterviewSessionView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -2403,7 +2734,7 @@ class MockInterviewSessionView(APIView):
             return Response({"error": "Unauthorized"}, status=403)
 
         job_id = request.data.get("job_id")
-        answers = request.data.get("answers")  # Expect a list of {"question_index": int, "answer": str}
+        answers = request.data.get("answers")
 
         job = Job.objects.filter(id=job_id).first()
         if not job:
@@ -2413,6 +2744,21 @@ class MockInterviewSessionView(APIView):
 
         # 🔹 START NEW SESSION
         if not answers:
+
+            # ⭐ FIX: LIMIT CHECK ONLY FOR NEW SESSION
+            today = timezone.now().date()
+
+            today_sessions_count = MockInterviewSession.objects.filter(
+                user=user,
+                job=job,
+                created_at__date=today
+            ).count()
+
+            if today_sessions_count >= 5:
+                return Response({
+                    "error": "Daily limit reached. You can only attempt 5 mock interviews per day..."
+                }, status=429)
+
             questions = ai.generate_questions(
                 job_title=job.title,
                 job_description=job.description,
@@ -2420,6 +2766,9 @@ class MockInterviewSessionView(APIView):
                 interview_type=request.data.get("interview_type", "technical"),
                 total_questions=request.data.get("total_questions", 10)
             )
+            if questions==[]:
+                return Response({"error": "Ai Failed to Generate questions.Check your internet connection"}, status=404)
+
 
             session = MockInterviewSession.objects.create(
                 user=user,
@@ -2435,18 +2784,21 @@ class MockInterviewSessionView(APIView):
                 "questions": [ai.sanitize_question(q) for q in questions]
             })
 
-        # 🔹 SUBMIT ALL ANSWERS
+        # 🔹 SUBMIT ANSWERS (NO LIMIT HERE)
         session = MockInterviewSession.objects.filter(
             id=request.data.get("session_id"),
             user=user
         ).first()
+
         if not session:
             return Response({"error": "Session not found"}, status=404)
 
         results = []
+
         for item in answers:
             idx = item.get("question_index")
             ans = item.get("answer")
+
             if idx is None or idx >= len(session.questions):
                 continue
 
@@ -2483,7 +2835,6 @@ class MockInterviewSessionView(APIView):
             "completed": True,
             "results": results
         })
-
 
 
 class MockInterviewProgressView(APIView):

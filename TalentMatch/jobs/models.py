@@ -30,6 +30,9 @@ class JobApplication(models.Model):
     resume = models.FileField(upload_to='resumes/')
     applied_at = models.DateTimeField(auto_now_add=True)
 
+    gradio_match_score = models.FloatField(null=True, blank=True, default=None)
+    gradio_analysis = models.JSONField(null=True, blank=True, default=dict)
+
     # 🆕 Add these fields:
     rank_score = models.FloatField(default=0.0)
     groq_rank = models.FloatField(default=0.0)                # LLM (Groq) score
@@ -40,8 +43,8 @@ class JobApplication(models.Model):
     project_categories = models.JSONField(default=list, blank=True)
     # jobs/models.py
     custom_model_score = models.FloatField(default=0.0)
-    gradio_match_score = models.FloatField(default=0, null=True, blank=True)
-    gradio_analysis = models.JSONField(default=dict, null=True, blank=True)
+    class Meta:
+        unique_together = ('job', 'applicant')
 
 
     def __str__(self):

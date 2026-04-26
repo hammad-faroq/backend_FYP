@@ -26,7 +26,10 @@ class ResumeUploadAPITest(TestCase):
             response,
             "Invalid file type. Only PDF and DOCX allowed."
         )
+<<<<<<< HEAD
 
+=======
+>>>>>>> 434fd985b534d825f643b615b27bc04169e463e8
     def test_large_file_rejected(self):
         large_content = b"x" * (5 * 1024 * 1024 + 1)  # 5MB + 1 byte
         large_file = SimpleUploadedFile("large.pdf", large_content)

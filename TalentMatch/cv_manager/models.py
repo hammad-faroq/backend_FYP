@@ -2,10 +2,6 @@ from django.db import models
 from django.core.validators import FileExtensionValidator
 from django.conf import settings
 
-
-
-
-
 # Resume model specifically for Template 1
 class ResumeTemplate1(models.Model):
     full_name = models.CharField(max_length=100)

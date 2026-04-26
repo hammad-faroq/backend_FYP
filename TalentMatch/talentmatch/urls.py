@@ -29,15 +29,12 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('accounts.urls')),
     path('cv_manager/', include('cv_manager.urls')),
-    # path('jobs/', include('jobs.urls')),
-    path('api/jobs/', include('jobs.urls')),
+    path('jobs/', include('jobs.urls')),
     path('ranking/', include('ranking.urls')),
-    path('api/interview/', include('interview.urls')),
-    path('api/', include('accounts.urls')),
-    path('api/resumedata/', include('resumedata.urls')),
-    path('api/notifications/', include('notifications.urls'))
-
-    # path("api/resume/", include("cv_manager.urls")),# ✅ API endpoints here)
+    path('interview/', include('interview.urls')),
+    path('resumedata/', include('resumedata.urls')),
+    path('notifications/', include('notifications.urls')),
+    path('profile/', include('user_profile.urls')),
 
 ]
 

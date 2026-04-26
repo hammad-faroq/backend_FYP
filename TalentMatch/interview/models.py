@@ -567,6 +567,10 @@ class InterviewPreparation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    #twO NEW FIELDS
+    last_more_generated_at = models.DateTimeField(null=True, blank=True)
+    more_generate_count = models.IntegerField(default=0, null=False)
+
     class Meta:
         unique_together = ("user", "job")
 
@@ -608,9 +612,21 @@ class InterviewChatSession(models.Model):
         related_name="interview_chat_sessions"
     )
     created_at = models.DateTimeField(auto_now_add=True)
+   
 
     def __str__(self):
         return f"Chat: {self.user.email} - {self.job.title}"
+class InterviewChatUsage(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    job = models.ForeignKey(Job, on_delete=models.CASCADE)
+
+    date = models.DateField()
+
+    tokens_used = models.IntegerField(default=0)
+    messages_used = models.IntegerField(default=0)
+
+    class Meta:
+        unique_together = ("user", "job", "date")
 
 
 class InterviewChatMessage(models.Model):

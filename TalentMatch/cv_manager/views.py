@@ -1,28 +1,19 @@
 # In cv_manager/views.py
-
-from datetime import timezone
-import os
+from django.utils import timezone
 import logging
 import mimetypes
-from io import BytesIO
 from django.core.mail import send_mail
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.template.loader import render_to_string, get_template
 from django.urls import reverse
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
-from django.views import View
 from django.conf import settings
 from django.contrib.staticfiles import finders
-
+from django.http import JsonResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
 from cv_manager.services.parser import parse_uploaded_resume 
-
 from weasyprint import HTML, CSS
-
 from .forms import ResumeTemplate1Form, ResumeTemplate2Form
 from .models import (
     UploadedResume, ParsedResume,
@@ -31,13 +22,35 @@ from .models import (
     EducationTemplate2, TrainingTemplate2, ExperienceTemplate2, SummaryPointTemplate2
 )
 from .serializers import UploadedResumeSerializer
-from rest_framework.views import APIView
 from rest_framework.settings import api_settings
-
 # Patch DRF APIView to use default settings
 APIView.settings = api_settings
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from django.shortcuts import render
+from cv_manager.models import (
+    UploadedResume,
+    ParsedResume,
+    CareerInsight,
+    CertificationRecommendation,
+    LearningPath,
+)
+from resumedata.analyzer import EnhancedResumeAnalyzer
+from cv_manager.models import ResumeAnalysis
+logger = logging.getLogger(__name__)
+from django.core.mail import send_mail
+from django.conf import settings
 
-
+ALLOWED_MIME_TYPES = [
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/msword",
+]
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from cv_manager.services.parser import parse_uploaded_resume
+from cv_manager.job_matcher import find_similar_jobs
+from django.http import JsonResponse
 
 # ======================================================================
 # Resume Template Selection + Input
@@ -229,72 +242,10 @@ def resume_pdf2(request, pk):
 # ======================================================================
 # cv_manager/views.py - Robust Resume Upload & Analysis
 # ======================================================================
-
-import mimetypes
-import logging
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from django.shortcuts import render
-from cv_manager.models import (
-    UploadedResume,
-    ParsedResume,
-    CareerInsight,
-    CertificationRecommendation,
-    LearningPath,
-    JobMatch,
-)
-from cv_manager.serializers import UploadedResumeSerializer
-from cv_manager.services.parser import parse_uploaded_resume
-from cv_manager.vector_utils import add_resume_to_qdrant
-from cv_manager.job_matcher import find_similar_jobs
-from resumedata.analyzer import EnhancedResumeAnalyzer
-from cv_manager.models import ResumeAnalysis
-logger = logging.getLogger(__name__)
-
-ALLOWED_MIME_TYPES = [
-    "application/pdf",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/msword",
-]
-
-
 # ======================================================================
 # Resume Upload & Analysis API
-# ======================================================================
+# ====================================================================
 
-import logging
-import mimetypes
-
-from django.conf import settings as django_settings
-from django.core.mail import send_mail
-from django.template.loader import render_to_string
-from django.utils import timezone
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-
-from cv_manager.serializers import UploadedResumeSerializer
-from cv_manager.models import (
-    ParsedResume,
-    ResumeAnalysis,
-    CareerInsight,
-    CertificationRecommendation,
-    LearningPath,
-)
-from resumedata.analyzer import EnhancedResumeAnalyzer
-from cv_manager.services.parser import parse_uploaded_resume
-from cv_manager.job_matcher import find_similar_jobs
-
-ALLOWED_MIME_TYPES = [
-    "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-]
-
-logger = logging.getLogger(__name__)
 
 
 class ResumeUploadView(APIView):
@@ -339,23 +290,25 @@ class ResumeUploadView(APIView):
             )
 
             # ------------------- STEP 3 — Parse resume -------------------
-            parser_result = parse_uploaded_resume(uploaded_resume.id, user=user)
+            parser_result = parse_uploaded_resume(uploaded_resume.id, user=user)#1st time parsing
+            resume_text = parser_result.get("raw_text", "")#get this text
+            # print(resume_text)
             if not parser_result.get("success", False):
                 return Response({"success": False, "message": parser_result.get("error")}, status=500)
 
             # ------------------- STEP 4 — Extract text + analyze -------------------
             analyzer = EnhancedResumeAnalyzer()
-            resume_text = analyzer.extract_text_from_resume(uploaded_resume.file.path)
-            if not resume_text:
-                return Response({"success": False, "message": "Resume text extraction failed"}, status=400)
+            # resume_text = analyzer.extract_text_from_resume(uploaded_resume.file.path)#2nd time text extract
+            # if not resume_text:
+            #     return Response({"success": False, "message": "Resume text extraction failed"}, status=400)
 
             analysis_result = analyzer.comprehensive_resume_analysis(
-                uploaded_resume.file.path,
+                resume_text,
                 job_description
             )
 
-            if not analysis_result.get("success", False):
-                return Response({"success": False, "message": "Resume analysis failed"}, status=400)
+            # if not analysis_result.get("success", False):
+            #     return Response({"success": False, "message": "Resume analysis failed"}, status=400)
 
             # ------------------- STEP 5 — Save Parsed Resume -------------------
             parsed_resume, _ = ParsedResume.objects.update_or_create(
@@ -366,28 +319,9 @@ class ResumeUploadView(APIView):
                     "raw_json": analysis_result.get("structured_data", {})
                 }
             )
-
-            # ------------------- STEP 6 — Save resume + skills to Neo4j -------------------
-            try:
-                from cv_manager.neo4j_utils import store_resume_in_neo4j
-
-                skills = analysis_result.get("structured_data", {}).get("skills", [])
-                neo4j_username = getattr(user, "username", None) or getattr(user, "email", "Unknown")
-                store_resume_in_neo4j(user.id, neo4j_username, parsed_resume.id, resume_text, skills)
-
-            except Exception as e:
-                logger.error(f"❌ Neo4j update failed: {e}")
-
-            # ------------------- STEP 7 — Add resume to Qdrant -------------------
-            try:
-                from cv_manager.vector_utils import add_resume_to_qdrant
-                add_resume_to_qdrant(user.id, resume_text)
-            except Exception as e:
-                logger.error(f"❌ Qdrant update failed: {e}")
-
             # ------------------- STEP 8 — Find similar jobs -------------------
-            matched_jobs_result = find_similar_jobs(user, limit=5)
-            matched_jobs = matched_jobs_result.get("matched_jobs", []) if isinstance(matched_jobs_result, dict) else []
+            # matched_jobs_result = find_similar_jobs(user, limit=5)
+            # matched_jobs = matched_jobs_result.get("matched_jobs", []) if isinstance(matched_jobs_result, dict) else []
 
             # ------------------- STEP 9 — Save FULL analysis data -------------------
             resume_analysis = ResumeAnalysis.objects.create(
@@ -396,7 +330,7 @@ class ResumeUploadView(APIView):
                 career_insights=analysis_result.get("career_analysis", {}),
                 certifications=analysis_result.get("certification_recommendations", []),
                 learning_path=analysis_result.get("learning_path", {}),
-                job_matches=matched_jobs
+                # job_matches=matched_jobs
             )
 
             # ------------------- BACKWARD COMPATIBILITY -------------------
@@ -421,9 +355,9 @@ class ResumeUploadView(APIView):
                 }
             )
 
-            # ------------------- STEP 10 — Send analysis email -------------------
+            # # ------------------- STEP 10 — Send analysis email -------------------
             try:
-                self.send_analysis_email(user, analysis_result, matched_jobs, parsed_resume.id)
+                self.send_analysis_email(user, analysis_result, parsed_resume.id)
             except Exception as e:
                 logger.error(f"❌ Email notification failed: {e}", exc_info=True)
 
@@ -431,7 +365,7 @@ class ResumeUploadView(APIView):
             return Response({
                 "success": True,
                 "message": "Resume uploaded, analyzed, and matched successfully",
-                "matched_jobs": matched_jobs,
+                # "matched_jobs": matched_jobs,
                 "career_insights": analysis_result.get("career_analysis", {}),
                 "certifications": analysis_result.get("certification_recommendations", []),
                 "learning_path": analysis_result.get("learning_path", {}),
@@ -446,7 +380,7 @@ class ResumeUploadView(APIView):
     # ==================================================================
     # Send Resume Analysis Email
     # ==================================================================
-    def send_analysis_email(self, user, analysis_result, matched_jobs, resume_id):
+    def send_analysis_email(self, user, analysis_result, resume_id):
         """
         Send email with normalized resume analysis results to the job seeker
         """
@@ -507,20 +441,6 @@ class ResumeUploadView(APIView):
                 ],
             }
 
-            # ------------------- Normalize Job Matches -------------------
-            normalized_jobs = []
-            for job in matched_jobs or []:
-                normalized_jobs.append({
-                    "title": job.get("title", "N/A"),
-                    "company": job.get("company", "N/A"),
-                    "location": job.get("location", ""),
-                    "match_score": round(
-                        job.get("match_score")
-                        or job.get("score", 0) * 100,
-                        2
-                    ),
-                })
-
             # ------------------- Normalize Certifications -------------------
             certifications = []
             for cert in analysis_result.get("certification_recommendations", []):
@@ -537,7 +457,6 @@ class ResumeUploadView(APIView):
                 "career_insights": career_insights,
                 "certifications": certifications,
                 "learning_path": learning_path,
-                "matched_jobs": normalized_jobs[:3],
                 "analysis_date": timezone.now().strftime("%B %d, %Y"),
             }
 
@@ -556,7 +475,7 @@ class ResumeUploadView(APIView):
             send_mail(
                 subject=subject,
                 message=text_content,
-                from_email=django_settings.DEFAULT_FROM_EMAIL,
+                from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[user_email],
                 html_message=html_content,
                 fail_silently=False,
@@ -597,13 +516,6 @@ def parsing_status(request, uploaded_resume_id):
 
 
 # Add these to your cv_manager/views.py
-
-from django.http import JsonResponse
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-import logging
-
-logger = logging.getLogger(__name__)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -719,64 +631,6 @@ def get_stored_job_matches(request):
             "success": False, 
             "message": f"Failed to fetch job matches: {str(e)}"
         }, status=500)
-    
-    
-# ======================================================================
-# API Endpoints for Career Insights, Certifications, Learning Path
-# ======================================================================
-# @api_view(['GET'])
-# @permission_classes([IsAuthenticated])
-# def get_career_insights(request, resume_id):
-#     try:
-#         insights = CareerInsight.objects.filter(resume_id=resume_id).first()
-#         if not insights:
-#             return JsonResponse({"success": False, "message": "No career insights found"}, status=404)
-#         return JsonResponse({"success": True, "career_insights": insights.insight_data})
-#     except Exception as e:
-#         return JsonResponse({"success": False, "message": str(e)}, status=500)
-
-
-# @api_view(['GET'])
-# @permission_classes([IsAuthenticated])
-# def get_certification_recommendations(request, resume_id):
-#     try:
-#         certs = CertificationRecommendation.objects.filter(resume_id=resume_id).first()
-#         if not certs:
-#             return JsonResponse({"success": False, "message": "No certifications found"}, status=404)
-#         return JsonResponse({"success": True, "certifications": certs.recommendations})
-#     except Exception as e:
-#         return JsonResponse({"success": False, "message": str(e)}, status=500)
-
-
-# @api_view(['GET'])
-# @permission_classes([IsAuthenticated])
-# def get_learning_path(request, resume_id):
-#     try:
-#         lp = LearningPath.objects.filter(resume_id=resume_id).first()
-#         if not lp:
-#             return JsonResponse({"success": False, "message": "No learning path found"}, status=404)
-#         return JsonResponse({"success": True, "learning_path": lp.path_data})
-#     except Exception as e:
-#         return JsonResponse({"success": False, "message": str(e)}, status=500)
-
-
-# @api_view(['GET'])
-# @permission_classes([IsAuthenticated])
-# def find_similar_jobs_view(request):
-#     try:
-#         user = request.user
-#         matches = JobMatch.objects.filter(user=user)
-#         data = [{
-#             "job_id": m.job_id,
-#             "title": m.title,
-#             "company": m.company,
-#             "location": m.location,
-#             "score": m.score,
-#             "source": m.source
-#         } for m in matches]
-#         return JsonResponse({"success": True, "matched_jobs": data})
-#     except Exception as e:
-#         return JsonResponse({"success": False, "message": str(e)}, status=500)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -792,10 +646,6 @@ def check_resume_status(request):
         "text_length": len(parsed_resume.raw_text) if has_text else 0,
         "resume_id": parsed_resume.id
     })
-
-
-from django.http import JsonResponse
-from .models import ResumeAnalysis
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -813,31 +663,6 @@ def get_resume_analysis(request):
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 
-
-
-
-# @api_view(['GET'])
-# @permission_classes([IsAuthenticated])
-# def find_similar_jobs_view(request):
-#     user = request.user
-#     try:
-#         use_groq = request.query_params.get("use_groq", "").lower() == "true"
-#         limit = int(request.query_params.get("limit", 5))
-#         matches = find_similar_jobs(user=user, limit=limit, use_groq=use_groq)
-#         return Response(matches, status=200)
-#     except Exception as e:
-#         logger.error(f"Job matching failed: {str(e)}", exc_info=True)
-#         return Response({"success": False, "message": f"Job matching failed: {str(e)}"}, status=500)
-
-
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-import logging
-from cv_manager.job_matcher import find_similar_jobs
-
-logger = logging.getLogger(__name__)
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def find_similar_jobs_view(request):
@@ -852,7 +677,7 @@ def find_similar_jobs_view(request):
         use_groq = request.query_params.get("use_groq", "").lower() == "true"
         limit = int(request.query_params.get("limit", 5))
 
-        result = find_similar_jobs(user=user, limit=limit, use_groq=use_groq, save_to_db=True)
+        result = find_similar_jobs(user=user, limit=limit, save_to_db=True)
 
         # Only return the matched jobs list
         matched_jobs = result.get("matched_jobs", [])
@@ -877,12 +702,6 @@ def check_application_status(request, job_id):
             job = Job.objects.get(id=job_id)
         except Job.DoesNotExist:
             return Response({"error": "Job not found"}, status=404)
-        
-        # Check if user has applied (you need to have an Application model)
-        # This depends on how your applications are stored
-        # Example if you have an Application model:
-        # from applications.models import Application
-        # application = Application.objects.filter(user=user, job=job).first()
         
         # For now, check from ResumeAnalysis job_matches
         analysis = ResumeAnalysis.objects.filter(user=user).order_by('-analysis_timestamp').first()

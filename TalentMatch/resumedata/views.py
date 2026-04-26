@@ -9,8 +9,6 @@ from resumedata.serializer import ResumeSerializer
 from resumedata.analyzer import process_resume as process_resume_llm
 from resumedata.qdrant_service import process_resume as process_resume_bert
 from resumedata.custom_model import predict_resume_score
-from jobs.models import JobRankingConfig
-from jobs.services.ranking import calculate_rank
 
 
 class AnalyzeResumeAPI(APIView):

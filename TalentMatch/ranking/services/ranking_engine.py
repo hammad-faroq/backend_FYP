@@ -7,16 +7,14 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 
 from ranking.ml_loader import get_rank_model, get_embedding_model
-import os
 
 # If you use Qdrant for job embeddings, set connection here (optional)
-# QDRANT_HOST = getattr(settings, "QDRANT_HOST", "localhost")
-# QDRANT_PORT = getattr(settings, "QDRANT_PORT", 6333)
-QDRANT_URL = os.getenv("QDRANT_URL")
-QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 qdrant_client = None
 try:
-    qdrant_client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+    qdrant_client = QdrantClient(
+    url=settings.QDRANT_URL,
+    api_key=settings.QDRANT_API_KEY
+)
 except Exception:
     qdrant_client = None
 

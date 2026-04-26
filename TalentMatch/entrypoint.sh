@@ -38,7 +38,7 @@ echo "✓ MySQL is connected!"
 ########################################
 echo "Waiting for Qdrant Cloud to be ready..."
 retry_count=0
-until curl -sf -H "Authorization: Bearer $QDRANT_API_KEY" "${QDRANT_URL}/collections" > /dev/null 2>&1; do
+until curl -sf -H "api-key: $QDRANT_API_KEY" "${QDRANT_URL}/collections" > /dev/null 2>&1; do
     retry_count=$((retry_count + 1))
     if [ $retry_count -ge $max_retries ]; then
         echo "⚠️ Qdrant Cloud did not become ready in time. Continuing anyway..."

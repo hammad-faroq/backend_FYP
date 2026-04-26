@@ -15,14 +15,8 @@ urlpatterns = [
     path('resume/success/', views.upload_success, name='upload_success'),
 
     # 🔍 Job Matching Endpoint (for frontend MatchesPage)
-    # The user ID will be extracted automatically from the authenticated user.
-    # Example: GET /api/cv_manager/similar-jobs/
-    # path("similar-jobs/", find_similar_jobs, name="get_similar_jobs"),
     path("similar-jobs/", views.find_similar_jobs_view, name="get_similar_jobs"),
     #####
-    ##### New things
-    #####
-    # path('api/upload-enhanced/', views.EnhancedResumeUploadView.as_view(), name='resume-upload-enhanced'),
     path('api/stored-career-insights/', views.get_stored_career_insights, name='stored-career-insights'),
     path('api/stored-certifications/', views.get_stored_certifications, name='stored-certifications'),
     path('api/stored-learning-path/', views.get_stored_learning_path, name='stored-learning-path'),

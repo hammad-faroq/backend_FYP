@@ -1,17 +1,21 @@
 from django.conf import settings
+from jobs.services.ranking import calculate_rank
+from qdrant_client.http import models
+from qdrant_client import QdrantClient
+from qdrant_client.http import models as qmodels
+from sentence_transformers import SentenceTransformer
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Job, JobApplication
+from .models import Job, JobApplication, JobRankingConfig
 from .serializers import JobSerializer, JobApplicationSerializer
-from resumedata.analyzer import process_resume
-import json,os
-from resumedata.custom_model import predict_resume_score
-from resumedata.analyzer import process_resume as process_resume_llm, extract_text_from_resume
-from resumedata.qdrant_service import process_resume as process_resume_bert
-from .models import JobRankingConfig
-from jobs.services.ranking import calculate_rank
+from resumedata.analyzer import EnhancedResumeAnalyzer
+import os
+from django.utils import timezone
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # CREATE JOB (HR only)
@@ -32,9 +36,6 @@ def create_job(request):
 @permission_classes([IsAuthenticated])
 def list_jobs(request):
     user = request.user
-    from django.utils import timezone
-    from datetime import datetime
-
     if user.role == 'hr':
         # HR sees all jobs they created (including past deadlines)
         jobs = Job.objects.filter(created_by=user)
@@ -46,12 +47,6 @@ def list_jobs(request):
         jobs = Job.objects.filter(
             application_deadline__gte=today
         ).order_by('application_deadline')
-        
-        # Option 2: If you want to show jobs with no deadline as well:
-        # jobs = Job.objects.filter(
-        #     Q(application_deadline__gte=today) | Q(application_deadline__isnull=True)
-        # ).order_by('application_deadline')
-        
     else:
         return Response({"error": "Invalid user role."}, status=status.HTTP_403_FORBIDDEN)
 
@@ -74,273 +69,56 @@ def job_detail(request, job_id):
     serializer = JobSerializer(job)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
-# UPDATE JOB (HR only) - serializer partial update
+client = QdrantClient(
+    url=settings.QDRANT_URL,
+    api_key=settings.QDRANT_API_KEY
+)
+model = SentenceTransformer("all-MiniLM-L6-v2")
+COLLECTION_NAME = "JOBS"
+
+
 @api_view(['PUT', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def update_job(request, job_id):
     user = request.user
+
     if user.role != 'hr':
-        return Response({"error": "Only HRs can update jobs."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"error": "Only HRs can update jobs."}, status=403)
 
     try:
         job = Job.objects.get(id=job_id, created_by=user)
     except Job.DoesNotExist:
-        return Response({"error": "Job not found or you don’t own it."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"error": "Job not found"}, status=404)
 
     serializer = JobSerializer(job, data=request.data, partial=True)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# DELETE JOB (HR only)
+    if serializer.is_valid():
+        job = serializer.save()
+        return Response(serializer.data, status=200)
+
+    return Response(serializer.errors, status=400)
+
+
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_job(request, job_id):
     user = request.user
+
     if user.role != 'hr':
-        return Response({"error": "Only HRs can delete jobs."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"error": "Only HRs can delete jobs."}, status=403)
 
     try:
         job = Job.objects.get(id=job_id, created_by=user)
     except Job.DoesNotExist:
-        return Response({"error": "Job not found or you don’t own it."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"error": "Job not found"}, status=404)
 
+    # 1. Delete from DB
     job.delete()
-    return Response({"message": "Job deleted successfully."}, status=status.HTTP_200_OK)
 
-from django.conf import settings
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
-from .models import Job, JobApplication, JobRankingConfig
-from .serializers import JobSerializer, JobApplicationSerializer
-from resumedata.analyzer import EnhancedResumeAnalyzer
-from jobs.services.ranking import calculate_rank
-import os
+    return Response({"message": "Job deleted successfully."})
+
 
 analyzer = EnhancedResumeAnalyzer()
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def apply_to_job(request, job_id):
-    user = request.user
-
-    # Only job seekers can apply
-    if user.role != 'job_seeker':
-        return Response({"error": "Only job seekers can apply to jobs."}, status=status.HTTP_403_FORBIDDEN)
-
-    # Check if job exists
-    try:
-        job = Job.objects.get(id=job_id)
-    except Job.DoesNotExist:
-        return Response({"error": "Job not found."}, status=status.HTTP_404_NOT_FOUND)
-
-    # Check if deadline has passed
-    from django.utils import timezone
-    if job.application_deadline and job.application_deadline < timezone.now().date():
-        return Response({
-            "error": f"Application deadline has passed. The deadline was {job.application_deadline}."
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    resume_file = request.FILES.get('resume')
-    if not resume_file:
-        return Response({"error": "Resume file is required."}, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        resumes_dir = os.path.join(settings.MEDIA_ROOT, 'resumes')
-        os.makedirs(resumes_dir, exist_ok=True)
-
-        # Save or update application
-        application, created = JobApplication.objects.update_or_create(
-            job=job,
-            applicant=user,
-            defaults={"resume": resume_file}
-        )
-
-        resume_path = application.resume.path
-        job_description = f"{job.title}\n{job.description}\n{job.requirements}"
-
-        # Step 1: LLM Analysis
-        llm_result = analyzer.analyze_resume_for_job(
-            analyzer.extract_text_from_resume(resume_path),
-            job_description
-        )
-        groq_rank = llm_result.get("groq_rank", 0)
-        skills = llm_result.get("skills", [])
-        total_experience = llm_result.get("total_experience", "0")
-        cgpa = llm_result.get("CGPA", "N/A")
-        project_categories = llm_result.get("project_category", [])
-        custom_score = llm_result.get("custom_model_score", 0)
-        bert_similarity = llm_result.get("bert_similarity", 0)
-        summary = llm_result.get("summary", "")
-
-        # Step 2: Get weights from JobRankingConfig
-        config, _ = JobRankingConfig.objects.get_or_create(job=job)
-        weights = {
-            "groq": config.llm_weight or 0.4,
-            "bert": config.bert_weight or 0.3,
-            "custom": config.custom_model_weight or 0.3
-        }
-
-        # Step 3: Calculate combined rank
-        rank_score = calculate_rank(
-            groq_rank=groq_rank,
-            bert_similarity=bert_similarity,
-            custom_model_score=custom_score,
-            weights=weights
-        )
-
-        # Step 4: Save all data
-        application.groq_rank = groq_rank
-        application.bert_similarity = bert_similarity
-        application.custom_model_score = custom_score
-        application.rank_score = rank_score
-        application.skills = skills
-        application.total_experience = total_experience
-        application.cgpa = cgpa
-        application.project_categories = project_categories
-        application.save()
-
-        message = "✅ Resume updated successfully for this job." if not created else "✅ Application submitted successfully."
-
-        return Response({
-            "message": message,
-            "job_title": job.title,
-            "resume_url": application.resume.url if application.resume else None,
-            "rank_score": rank_score,
-            "groq_rank": groq_rank,
-            "bert_similarity": bert_similarity,
-            "custom_model_score": custom_score,
-            "skills": skills,
-            "cgpa": cgpa,
-            "total_experience": total_experience,
-            "project_categories": project_categories,
-            "summary": summary
-        }, status=status.HTTP_200_OK)
-
-    except Exception as e:
-        return Response({"error": f"Failed to process application: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-
-# from django.conf import settings
-# from rest_framework.decorators import api_view, permission_classes
-# from rest_framework.permissions import IsAuthenticated
-# from rest_framework.response import Response
-# from rest_framework import status
-# from .models import Job, JobApplication, JobRankingConfig
-# from resumedata.analyzer import EnhancedResumeAnalyzer, extract_text_from_resume
-# from resumedata.qdrant_service import process_resume as process_resume_bert
-# from resumedata.custom_model import predict_resume_score
-# from jobs.services.ranking import calculate_rank
-# from gradio_client import Client
-# import os
-# import json
-# import traceback
-# import threading
-# import time
-
-# analyzer = EnhancedResumeAnalyzer()
-
-# def analyze_with_gradio_async(application_id):
-#     """
-#     Background function to run Gradio analysis with retry logic
-#     Runs in separate thread and updates application when complete
-#     """
-#     max_retries = 2  # Reduced retries since GPU errors are persistent
-#     retry_count = 0
-    
-#     try:
-#         application = JobApplication.objects.get(id=application_id)
-#         job = application.job
-#         resume_path = application.resume.path
-#         job_description = f"{job.title}\n{job.description}\n{job.requirements}"
-        
-#         # Extract resume text
-#         try:
-#             resume_text = extract_text_from_resume(resume_path)
-#             # ✅ Limit text length to avoid GPU overload
-#             resume_text = resume_text[:4000]  # Max 4000 chars
-#             job_description = job_description[:1500]  # Max 1500 chars
-#         except Exception as e:
-#             print(f"❌ [Gradio Thread] Error extracting resume text: {e}")
-#             resume_text = ""
-        
-#         print(f"🎯 [Gradio Thread] Starting CV-JD matching for application {application_id}...")
-        
-#         # ✅ Retry loop
-#         while retry_count < max_retries:
-#             try:
-#                 print(f"🔄 [Gradio Thread] Attempt {retry_count + 1}/{max_retries}")
-                
-#                 # ✅ Longer timeout for GPU tasks
-#                 client = Client("Irfaniiioo/cvjdgradio")  # 5 minutes
-                
-#                 result = client.predict(
-#                     cv=resume_text,
-#                     job_description=job_description,
-#                     api_name="/match_cv_job"
-#                 )
-                
-#                 # Parse the result
-#                 if isinstance(result, str):
-#                     gradio_result = json.loads(result)
-#                 else:
-#                     gradio_result = result
-                    
-#                 print(f"✅ [Gradio Thread] Analysis complete for application {application_id}")
-#                 print(gradio_result)
-                
-#                 # Update application with Gradio results
-#                 application.gradio_match_score = gradio_result.get("Total_score", 0)
-#                 application.gradio_analysis = gradio_result
-#                 application.save()
-                
-#                 print(f"✅ [Gradio Thread] Saved score: {gradio_result.get('Total_score', 0)}")
-#                 return  # Success - exit function
-                
-#             except Exception as e:
-#                 retry_count += 1
-#                 error_msg = str(e)
-#                 print(f"❌ [Gradio Thread] Error (attempt {retry_count}/{max_retries}): {error_msg}")
-                
-#                 # Check if it's a GPU error
-#                 is_gpu_error = "GPU task aborted" in error_msg or "aborted" in error_msg.lower()
-                
-#                 if retry_count < max_retries and not is_gpu_error:
-#                     # Wait before retrying (only for non-GPU errors)
-#                     wait_time = 30  # 30 seconds
-#                     print(f"⏳ [Gradio Thread] Retrying in {wait_time} seconds...")
-#                     time.sleep(wait_time)
-#                 else:
-#                     # All retries failed or GPU error
-#                     print(f"❌ [Gradio Thread] Giving up. Saving error state.")
-                    
-#                     if is_gpu_error:
-#                         error_description = "The AI model's GPU is currently overloaded due to high demand. Please check back in a few minutes."
-#                     else:
-#                         error_description = f"Analysis service error: {error_msg[:200]}"
-                    
-#                     application.gradio_match_score = 0
-#                     application.gradio_analysis = {
-#                         "matching_analysis": "Analysis unavailable",
-#                         "description": error_description,
-#                         "score": 0,
-#                         "recommendation": "Other analysis scores (LLM, BERT, Custom Model) are available. The match score will be retried automatically.",
-#                         "error": error_msg[:500],
-#                         "error_type": "gpu_overload" if is_gpu_error else "api_error"
-#                     }
-#                     application.save()
-#                     return
-            
-#     except JobApplication.DoesNotExist:
-#         print(f"❌ [Gradio Thread] Application {application_id} not found")
-#     except Exception as e:
-#         print(f"❌ [Gradio Thread] Unexpected error: {e}")
-#         print(traceback.format_exc())
-
 
 # @api_view(['POST'])
 # @permission_classes([IsAuthenticated])
@@ -371,66 +149,39 @@ def apply_to_job(request, job_id):
 #     try:
 #         resumes_dir = os.path.join(settings.MEDIA_ROOT, 'resumes')
 #         os.makedirs(resumes_dir, exist_ok=True)
+#         existing = JobApplication.objects.filter(job=job, applicant=user).first()
+#         if existing:
+#             return Response(
+#                 {"error": "You have already applied for this job."},
+#                 status=status.HTTP_400_BAD_REQUEST
+#                 )
 
 #         # Save or update application
-#         application, created = JobApplication.objects.update_or_create(
-#             job=job,
-#             applicant=user,
-#             defaults={"resume": resume_file}
-#         )
+#         application = JobApplication.objects.create(
+#                     job=job,
+#                     applicant=user,
+#                     resume=resume_file
+#                 )
+#         created = True
 
 #         resume_path = application.resume.path
 #         job_description = f"{job.title}\n{job.description}\n{job.requirements}"
 
-#         # ✅ Extract resume text
-#         print("📄 Extracting resume text...")
-#         try:
-#             resume_text = extract_text_from_resume(resume_path)
-#         except Exception as e:
-#             print(f"❌ Error extracting resume text: {e}")
-#             resume_text = ""
+#         # Step 1: LLM Analysis
+#         llm_result = analyzer.analyze_resume_for_job(
+#             analyzer.extract_text_from_resume(resume_path),
+#             job_description
+#         )
+#         groq_rank = llm_result.get("groq_rank", 0)
+#         skills = llm_result.get("skills", [])
+#         total_experience = llm_result.get("total_experience", "0")
+#         cgpa = llm_result.get("CGPA", "N/A")
+#         project_categories = llm_result.get("project_category", [])
+#         custom_score = llm_result.get("custom_model_score", 0)
+#         bert_similarity = llm_result.get("bert_similarity", 0)
+#         summary = llm_result.get("summary", "")
 
-#         # ==========================================
-#         # FAST ANALYSES (Run immediately)
-#         # ==========================================
-
-#         # Step 1: LLM Analysis (FAST)
-#         print("🧠 Running Groq LLM analysis...")
-#         try:
-#             llm_result = analyzer.analyze_resume_for_job(resume_text, job_description)
-#             groq_rank = llm_result.get("groq_rank", 0)
-#             skills = llm_result.get("skills", [])
-#             total_experience = llm_result.get("total_experience", "0")
-#             cgpa = llm_result.get("CGPA", "N/A")
-#             project_categories = llm_result.get("project_category", [])
-#             summary = llm_result.get("summary", "")
-#         except Exception as e:
-#             print(f"❌ Groq LLM error: {e}")
-#             groq_rank = 0
-#             skills = []
-#             total_experience = "0"
-#             cgpa = "N/A"
-#             project_categories = []
-#             summary = ""
-
-#         # Step 2: BERT + Qdrant Analysis (FAST)
-#         print("⚙️ Running BERT + Qdrant similarity analysis...")
-#         try:
-#             bert_result = process_resume_bert(resume_path, job_description, job_id=job.id)
-#             bert_similarity = bert_result.get("similarity_score", 0)
-#         except Exception as e:
-#             print(f"❌ BERT error: {e}")
-#             bert_similarity = 0
-
-#         # Step 3: Custom ML Model (FAST)
-#         print("🤖 Running custom ML model scoring...")
-#         try:
-#             custom_score = predict_resume_score(resume_path, job_description)
-#         except Exception as e:
-#             print(f"❌ Custom model error: {e}")
-#             custom_score = 0
-
-#         # Step 4: Get weights from JobRankingConfig
+#         # Step 2: Get weights from JobRankingConfig
 #         config, _ = JobRankingConfig.objects.get_or_create(job=job)
 #         weights = {
 #             "groq": config.llm_weight or 0.4,
@@ -438,22 +189,15 @@ def apply_to_job(request, job_id):
 #             "custom": config.custom_model_weight or 0.3
 #         }
 
-#         # Step 5: Calculate combined rank (without Gradio for now)
-#         try:
-#             rank_score = calculate_rank(
-#                 groq_rank=groq_rank,
-#                 bert_similarity=bert_similarity,
-#                 custom_model_score=custom_score,
-#                 weights=weights
-#             )
-#         except Exception as e:
-#             print(f"❌ Ranking calculation error: {e}")
-#             rank_score = 0
+#         # Step 3: Calculate combined rank
+#         rank_score = calculate_rank(
+#             groq_rank=groq_rank,
+#             bert_similarity=bert_similarity,
+#             custom_model_score=custom_score,
+#             weights=weights
+#         )
 
-#         # ==========================================
-#         # SAVE IMMEDIATE RESULTS
-#         # ==========================================
-
+#         # Step 4: Save all data
 #         application.groq_rank = groq_rank
 #         application.bert_similarity = bert_similarity
 #         application.custom_model_score = custom_score
@@ -462,38 +206,9 @@ def apply_to_job(request, job_id):
 #         application.total_experience = total_experience
 #         application.cgpa = cgpa
 #         application.project_categories = project_categories
-        
-#         # ✅ Set Gradio as "processing" (will be updated by background thread)
-#         application.gradio_match_score = None  # None = processing
-#         application.gradio_analysis = {
-#             "status": "processing",
-#             "message": "Analysis in progress. This may take 2-3 minutes."
-#         }
-        
 #         application.save()
 
-#         # ==========================================
-#         # START GRADIO IN BACKGROUND (SLOW - Async)
-#         # ==========================================
-        
-#         print(f"🚀 Starting Gradio analysis in background for application {application.id}...")
-#         try:
-#             thread = threading.Thread(
-#                 target=analyze_with_gradio_async,
-#                 args=(application.id,),
-#                 daemon=True
-#             )
-#             thread.start()
-#             print("✅ Gradio background thread started")
-#         except Exception as e:
-#             print(f"⚠️ Could not start Gradio thread: {e}")
-#             # Not critical - continue without it
-
-#         # ==========================================
-#         # RETURN IMMEDIATE RESPONSE
-#         # ==========================================
-
-#         message = "✅ Application submitted! Fast analysis complete. Match score analysis in progress..." if created else "✅ Resume updated! Fast analysis complete. Match score analysis in progress..."
+#         message = "✅ Resume updated successfully for this job." if not created else "✅ Application submitted successfully."
 
 #         return Response({
 #             "message": message,
@@ -503,88 +218,181 @@ def apply_to_job(request, job_id):
 #             "groq_rank": groq_rank,
 #             "bert_similarity": bert_similarity,
 #             "custom_model_score": custom_score,
-#             "gradio_match_score": None,  # ✅ Will be updated by background thread
-#             "gradio_status": "processing",  # ✅ Tell frontend it's processing
 #             "skills": skills,
 #             "cgpa": cgpa,
 #             "total_experience": total_experience,
 #             "project_categories": project_categories,
-#             "summary": summary,
-#             "note": "Match score will be available in 2-3 minutes. Page will auto-refresh."
+#             "summary": summary
 #         }, status=status.HTTP_200_OK)
 
 #     except Exception as e:
-#         print(f"❌ Apply to job error: {e}")
-#         print(traceback.format_exc())
-#         return Response({
-#             "error": f"Failed to process application: {str(e)}"
-#         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-# # ```
+#         return Response({"error": f"Failed to process application: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# # ---
 
-# ## **WHAT THIS DOES:**
+from jobs.services.hf_service import call_hf_model_with_retry
+import threading
+import threading
 
-# # ### **✅ Application Process (Fast - 5-10 seconds):**
-# # 1. Save resume ✅
-# # 2. Run Groq LLM ✅
-# # 3. Run BERT ✅
-# # 4. Run Custom Model ✅
-# # 5. Calculate Combined Rank ✅
-# # 6. **Return response immediately** ✅
-# # 7. Start Gradio in background thread 🔄
+def _run_hf_analysis(application_id, resume_text, job_description):
+    """Runs in background thread after application is saved."""
+    from .models import JobApplication
+    try:
+        hf_result = call_hf_model_with_retry(
+            resume_text=resume_text,
+            job_description=job_description,
+            max_retries=2,
+            delay=3
+        )
+        gradio_analysis = hf_result.get("data", {})
+        gradio_score = hf_result.get("score", 0)
 
-# # ### **🔄 Background Thread (2-3 minutes):**
-# # 1. Extracts resume text
-# # 2. Calls Gradio API (with retry)
-# # 3. Handles GPU errors gracefully
-# # 4. Updates database when complete
-# # 5. Frontend auto-refreshes and sees the score
+        JobApplication.objects.filter(id=application_id).update(
+            gradio_match_score=gradio_score,
+            gradio_analysis=gradio_analysis
+        )
+        logger.info(f"HF analysis complete for application {application_id}: score={gradio_score}")
+    except Exception as e:
+        logger.error(f"Background HF analysis failed for application {application_id}: {e}")
+        JobApplication.objects.filter(id=application_id).update(
+            gradio_analysis={"error": str(e), "description": "Background analysis failed"}
+        )
 
-# # ---
 
-# ## **KEY BENEFITS:**
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def apply_to_job(request, job_id):
+    user = request.user
 
-# # ✅ **Application never fails** - even if Gradio crashes
-# # ✅ **User sees results immediately** - Groq, BERT, Custom scores
-# # ✅ **Gradio runs in background** - doesn't block the response
-# # ✅ **Auto-retry on failure** - tries twice before giving up
-# # ✅ **GPU error handling** - shows friendly error message
-# # ✅ **Frontend polling works** - page refreshes every 10s to check
+    if user.role != 'job_seeker':
+        return Response({"error": "Only job seekers can apply to jobs."}, status=status.HTTP_403_FORBIDDEN)
 
-# # ---
+    try:
+        job = Job.objects.get(id=job_id)
+    except Job.DoesNotExist:
+        return Response({"error": "Job not found."}, status=status.HTTP_404_NOT_FOUND)
 
-# # ## **WHAT USER SEES:**
+    from django.utils import timezone
+    if job.application_deadline and job.application_deadline < timezone.now().date():
+        return Response({
+            "error": f"Application deadline has passed. The deadline was {job.application_deadline}."
+        }, status=status.HTTP_400_BAD_REQUEST)
 
-# # **Immediately after applying:**
-# # ```
-# # ✅ Application submitted!
-# # - Combined Rank: 79 ✅
-# # - Groq Rank: 85 ✅
-# # - BERT: 78.5 ✅
-# # - Custom: 72.3 ✅
-# # - Match Score: Processing... 🔄
-# # ```
+    resume_file = request.FILES.get('resume')
+    if not resume_file:
+        return Response({"error": "Resume file is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-# # **After 2-3 minutes (auto-refresh):**
-# # ```
-# # ✅ Application submitted!
-# # - Combined Rank: 79 ✅
-# # - Groq Rank: 85 ✅
-# # - BERT: 78.5 ✅
-# # - Custom: 72.3 ✅
-# # - Match Score: 88% ✅ (Click to see details)
-# # ```
+    try:
+        resumes_dir = os.path.join(settings.MEDIA_ROOT, 'resumes')
+        os.makedirs(resumes_dir, exist_ok=True)
 
-# # **If Gradio fails:**
-# # ```
-# # ✅ Application submitted!
-# # - Combined Rank: 79 ✅
-# # - Groq Rank: 85 ✅
-# # - BERT: 78.5 ✅
-# # - Custom: 72.3 ✅
-# # - Match Score: GPU Overload ⚠️
+        if JobApplication.objects.filter(job=job, applicant=user).exists():
+            return Response(
+                {"error": "You have already applied for this job."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
+        # Save application immediately (no HF call yet)
+        application = JobApplication.objects.create(
+            job=job,
+            applicant=user,
+            resume=resume_file,
+            gradio_match_score=None,   # null = still processing
+            gradio_analysis={}
+        )
+
+        resume_path = application.resume.path
+        job_description = f"{job.title}\n{job.description}\n{job.requirements}"
+        resume_text = analyzer.extract_text_from_resume(resume_path)
+
+        # --- Sync: fast LLM/BERT/custom scoring ---
+        llm_result = analyzer.analyze_resume_for_job(resume_text, job_description)
+
+        groq_rank      = llm_result.get("groq_rank", 0)
+        skills         = llm_result.get("skills", [])
+        total_experience = llm_result.get("total_experience", "0")
+        cgpa           = llm_result.get("CGPA", "N/A")
+        project_categories = llm_result.get("project_category", [])
+        custom_score   = llm_result.get("custom_model_score", 0)
+        bert_similarity = llm_result.get("bert_similarity", 0)
+        summary        = llm_result.get("summary", "")
+
+        config, _ = JobRankingConfig.objects.get_or_create(job=job)
+        # FIXED — only falls back if the value is actually None (not saved yet)
+        weights = {
+            "groq":   config.llm_weight if config.llm_weight is not None else 0.4,
+            "bert":   config.bert_weight if config.bert_weight is not None else 0.3,
+            "custom": config.custom_model_weight if config.custom_model_weight is not None else 0.3
+        }
+
+        rank_score = calculate_rank(
+            groq_rank=groq_rank,
+            bert_similarity=bert_similarity,
+            custom_model_score=custom_score,
+            weights=weights
+        )
+
+        application.groq_rank          = groq_rank
+        application.bert_similarity    = bert_similarity
+        application.custom_model_score = custom_score
+        application.rank_score         = rank_score
+        application.skills             = skills
+        application.total_experience   = total_experience
+        application.cgpa               = cgpa
+        application.project_categories = project_categories
+        application.save()
+
+        # --- Async: fire-and-forget HF analysis ---
+        thread = threading.Thread(
+            target=_run_hf_analysis,
+            args=(application.id, resume_text, job_description),
+            daemon=True
+        )
+        thread.start()
+
+        return Response({
+            "message": "✅ Application submitted successfully. HuggingFace analysis is running in the background.",
+            "job_title": job.title,
+            "resume_url": application.resume.url if application.resume else None,
+            "rank_score": rank_score,
+            "groq_rank": groq_rank,
+            "bert_similarity": bert_similarity,
+            "custom_model_score": custom_score,
+            "gradio_match_score": None,   # still processing
+            "gradio_analysis": {},
+            "skills": skills,
+            "cgpa": cgpa,
+            "total_experience": total_experience,
+            "project_categories": project_categories,
+            "summary": summary
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response(
+            {"error": f"Failed to process application: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+# @api_view(['GET'])
+# @permission_classes([IsAuthenticated])
+# def check_application_status(request, job_id):
+#     user = request.user
+
+#     applied = JobApplication.objects.filter(
+#         job_id=job_id,
+#         applicant=user
+#     ).exists()
+
+#     return Response({
+#         "applied": applied
+#     })
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_applied_jobs(request):
+    user = request.user
+    applied_jobs = JobApplication.objects.filter(applicant=user).values_list("job_id", flat=True)
+
+    return Response({
+        "applied_jobs": list(applied_jobs)
+    })
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -681,29 +489,33 @@ def list_applied_jobs(request):
 
     applications = JobApplication.objects.filter(applicant=user).select_related('job')
     applied_jobs = [
-        {
+    {
+        "id": app.id,
+        "applied_at": app.applied_at,
+        
+        "company_name": app.job.company_name,
+
+        # 🔵 JOB DATA (THIS IS WHAT YOU NEED IN FRONTEND)
+        "job": {
             "id": app.job.id,
             "title": app.job.title,
-            "company_name": app.job.company_name,
+            "description": app.job.description,
+            "requirements": app.job.requirements,
             "location": app.job.location,
             "application_deadline": app.job.application_deadline,
-            "applied_at": app.applied_at,
+        },
+
+        # 🟢 APPLICATION DATA
+        "application": {
+            "rank_score": app.rank_score,
+            "groq_rank": app.groq_rank,
+            "bert_similarity": app.bert_similarity,
+            "skills": app.skills,
+            "cgpa": app.cgpa,
+            "experience": app.total_experience,
+            "project_categories": app.project_categories,
         }
-        for app in applications if app.job
+    }
+    for app in applications.select_related('job')
     ]
     return Response(applied_jobs, status=200)
-
-
-
-
-# from rest_framework.decorators import api_view
-# from rest_framework.response import Response
-# from cv_manager.job_matcher import find_similar_jobs
-
-# @api_view(['GET'])
-# def similar_jobs(request, user_id):
-#     """
-#     Return top jobs matching a user's resume.
-#     """
-#     jobs = find_similar_jobs(user_id=user_id)
-#     return Response(jobs)

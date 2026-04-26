@@ -144,36 +144,52 @@ RETURN STRICT JSON ONLY in this format:
     # -----------------------------------------
     # ✅ Chat reply (mock interview)
     # -----------------------------------------
-    def chat_reply(self, job_title: str, job_description: str, user_message: str) -> str:
+    def chat_reply(self, job_title: str, job_description: str, chat_history: list) -> str:
         """
-        Generate AI reply for mock interview chat
+        Generate AI reply for mock interview chat (stateful)
         """
-        prompt = f"""
-You are a senior technical interviewer conducting a mock interview.
 
-JOB TITLE:
-{job_title}
+        system_prompt = f"""
+        You are a senior technical interviewer conducting a mock interview.
 
-JOB DESCRIPTION:
-{job_description}
+        JOB TITLE:
+        {job_title}
 
-USER MESSAGE:
-{user_message}
+        JOB DESCRIPTION:
+        {job_description}
 
-TASK:
-Respond as the interviewer/assistant with a concise, helpful, professional answer or follow-up question.
-"""
+        IMPORTANT RULES:
+        - DO NOT invent or assume any company name
+        - If user asks for company name → say: "No company name is specified"
+        - Only use the given job title and description
+        - Stay strictly within the provided context
+        - Ask relevant interview questions or give helpful answers
+        - If information is missing → clearly say it is not specified
+        - role → reply only role name (1 line)
+        - job description → summarize in 2-3 lines max
+        - company → always say "No company is specified"
+        - avoid repeating full JD unless explicitly asked
+        """
 
         try:
+            # ✅ Build messages safely
+            messages = [
+                {"role": "system", "content": system_prompt}
+            ]
+
+            # ✅ Add chat history (last 10 messages only)
+            if chat_history:
+                messages += chat_history[-10:]
+
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=messages,
                 temperature=0.3,
                 max_tokens=1000
             )
+
             return response.choices[0].message.content.strip()
 
         except Exception as e:
             logger.error(f"Chat reply generation failed: {str(e)}")
-            return "Sorry, I could not generate a reply at this time."
-        
+            return "Sorry, I could not generate a reply at this time.May be Check your internet connection"

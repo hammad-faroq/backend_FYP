@@ -6,8 +6,6 @@ from docx import Document
 from cv_manager.models import UploadedResume, ParsedResume
 import os
 
-from cv_manager.services.mongo_utils import store_parsed_resume_mongo
-
 logger = logging.getLogger(__name__)
 
 # ---------------- ResumeParser Class ---------------- #
@@ -102,15 +100,6 @@ def parse_uploaded_resume(uploaded_resume_id, user=None):
             raw_text=extracted_text,
             raw_json=metadata_json
         )
-        # ------------------ Store in MongoDB ------------------
-        mongo_id = None
-        if user:
-            mongo_id = store_parsed_resume_mongo(
-                user_id=user.id,
-                uploaded_resume_id=uploaded_resume.id,
-                resume_text=extracted_text,
-                metadata=metadata_json
-            )
 
         return {
             "success": True,

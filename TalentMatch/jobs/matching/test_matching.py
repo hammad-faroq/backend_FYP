@@ -8,7 +8,6 @@ Task: 3.5 - Backend job matching API
 """
 
 from django.test import TestCase
-from jobs.matching.recommender import JobRecommender
 from jobs.matching.similarity_utils import (
     cosine_similarity,
     normalize_score,
