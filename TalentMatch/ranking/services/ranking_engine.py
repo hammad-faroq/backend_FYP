@@ -3,8 +3,6 @@ import numpy as np
 from django.conf import settings
 from jobs.models import Job, JobApplication
 from resumedata.analyzer import extract_text_from_resume    # reuse your extractor
-from qdrant_client import QdrantClient
-from qdrant_client.http import models as qmodels
 
 from ranking.ml_loader import get_rank_model, get_embedding_model
 

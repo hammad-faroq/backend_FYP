@@ -1,5 +1,5 @@
 
-from TalentMatch.utils.qdrant_client import get_qdrant_client
+from utils.qdrant_client import get_qdrant_client
 from cv_manager.models import ParsedResume, JobMatch
 from jobs.models import Job
 from django.conf import settings
