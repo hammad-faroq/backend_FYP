@@ -16,7 +16,6 @@ SIMILARITY_THRESHOLD = 0.15
 
 def get_bert_model():
     return get_sentence_transformer()
-_
 
 def find_similar_jobs(user, limit=5, save_to_db=True):
     """
