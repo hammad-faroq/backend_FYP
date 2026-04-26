@@ -39,7 +39,6 @@ INSTALLED_APPS = [
     # ============================================
     # STEP 3 CHANGE: Add 'storages' for S3
     # ============================================
-    'storages',
     
     'jobs.apps.JobsConfig',
     
