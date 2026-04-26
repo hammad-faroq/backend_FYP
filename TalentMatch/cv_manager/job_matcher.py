@@ -10,11 +10,16 @@ import logging
 logger = logging.getLogger(__name__)
 
 JOB_COLLECTION = "JOBS"
-# BERT model as fallback
-bert_model = SentenceTransformer("all-MiniLM-L6-v2")
+SIMILARITY_THRESHOLD = 0.15
 
-# Similarity threshold
-SIMILARITY_THRESHOLD = 0.15  # Tune as needed
+_bert_model = None
+
+def get_bert_model():
+    global _bert_model
+    if _bert_model is None:
+        _bert_model = SentenceTransformer("all-MiniLM-L6-v2")
+    return _bert_model
+
 
 def find_similar_jobs(user, limit=5, save_to_db=True):
     """
@@ -32,6 +37,7 @@ def find_similar_jobs(user, limit=5, save_to_db=True):
             }
 
         # ---------------- Generate embedding (ONLY BERT) ----------------
+        bert_model = get_bert_model()  # lazy load here
         resume_vector = bert_model.encode(resume.raw_text).tolist()
         source = "BERT"
 
