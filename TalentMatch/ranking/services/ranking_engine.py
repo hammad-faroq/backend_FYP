@@ -9,12 +9,10 @@ from qdrant_client.http import models as qmodels
 from ranking.ml_loader import get_rank_model, get_embedding_model
 
 # If you use Qdrant for job embeddings, set connection here (optional)
+from utils.qdrant_client import get_qdrant_client
 qdrant_client = None
 try:
-    qdrant_client = QdrantClient(
-    url=settings.QDRANT_URL,
-    api_key=settings.QDRANT_API_KEY
-)
+    qdrant_client = get_qdrant_client()
 except Exception:
     qdrant_client = None
 

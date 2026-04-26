@@ -1,25 +1,22 @@
-import requests
-from qdrant_client import QdrantClient
-from sentence_transformers import SentenceTransformer
+
+from TalentMatch.utils.qdrant_client import get_qdrant_client
 from cv_manager.models import ParsedResume, JobMatch
 from jobs.models import Job
 from django.conf import settings
 from datetime import datetime
 import logging
+from utils.qdrant_client import get_qdrant_client
+from utils.ml_models import get_sentence_transformer
 
 logger = logging.getLogger(__name__)
 
 JOB_COLLECTION = "JOBS"
 SIMILARITY_THRESHOLD = 0.15
 
-_bert_model = None
 
 def get_bert_model():
-    global _bert_model
-    if _bert_model is None:
-        _bert_model = SentenceTransformer("all-MiniLM-L6-v2")
-    return _bert_model
-
+    return get_sentence_transformer()
+_
 
 def find_similar_jobs(user, limit=5, save_to_db=True):
     """
@@ -49,10 +46,9 @@ def find_similar_jobs(user, limit=5, save_to_db=True):
             }
 
         # ---------------- Connect to Qdrant ----------------
-        client = QdrantClient(
-                    url=settings.QDRANT_URL,
-                    api_key=settings.QDRANT_API_KEY
-                )
+
+# ... later in your code ...
+        client = get_qdrant_client()
 
         today = datetime.now().date()
         open_jobs = Job.objects.filter(application_deadline__gte=today)#deu to this line

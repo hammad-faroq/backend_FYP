@@ -1,14 +1,11 @@
 import os
-from sentence_transformers import SentenceTransformer, util
+from sentence_transformers import  util
 from .analyzer import extract_text_from_resume
 
-_embedding_model = None
+from utils.ml_models import get_sentence_transformer
 
 def get_embedding_model():
-    global _embedding_model
-    if _embedding_model is None:
-        _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-    return _embedding_model
+    return get_sentence_transformer()
 
 def predict_resume_score(resume_path, job_description):
     model = get_embedding_model()

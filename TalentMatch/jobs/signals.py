@@ -6,15 +6,13 @@ from qdrant_client.http import models as qmodels
 
 COLLECTION_NAME = "JOBS"
 
-_client = None
+
 _model = None
 
+from utils.qdrant_client import get_qdrant_client
+
 def get_client():
-    global _client
-    if _client is None:
-        from qdrant_client import QdrantClient
-        _client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)
-    return _client
+    return get_qdrant_client()
 
 def get_model():
     global _model

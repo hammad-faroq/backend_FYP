@@ -1,32 +1,18 @@
 import os
 import docx2txt
 import PyPDF2
-from sentence_transformers import SentenceTransformer
-from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 from jobs.models import Job
-from django.conf import settings
+from utils.qdrant_client import get_qdrant_client
+from utils.ml_models import get_sentence_transformer
 
 COLLECTION_NAME = "JOBS"
 
-# lazy globals
-_bert_model = None
-_qdrant = None
-
 def get_bert_model():
-    global _bert_model
-    if _bert_model is None:
-        _bert_model = SentenceTransformer("all-MiniLM-L6-v2")
-    return _bert_model
+    return get_sentence_transformer()
 
 def get_qdrant():
-    global _qdrant
-    if _qdrant is None:
-        _qdrant = QdrantClient(
-            url=settings.QDRANT_URL,
-            api_key=settings.QDRANT_API_KEY
-        )
-    return _qdrant
+    return get_qdrant_client()
 
 # ------------------------- RESUME TEXT EXTRACTION -------------------------
 def extract_text_from_resume(file_path):

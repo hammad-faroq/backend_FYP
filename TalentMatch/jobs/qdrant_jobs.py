@@ -1,20 +1,12 @@
-from qdrant_client import QdrantClient
 from qdrant_client.http import models
-from sentence_transformers import SentenceTransformer
 from jobs.models import Job
 from django.conf import settings
-
-client = QdrantClient(
-    url=settings.QDRANT_URL,
-    api_key=settings.QDRANT_API_KEY
-)
-_model = None  # don't load yet!
+from utils.qdrant_client import get_qdrant_client
+client = get_qdrant_client()
+from utils.ml_models import get_sentence_transformer
 
 def get_model():
-    global _model
-    if _model is None:
-        _model = SentenceTransformer("all-MiniLM-L6-v2")
-    return _model
+    return get_sentence_transformer()
 
 COLLECTION_NAME = "JOBS"
 
