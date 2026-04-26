@@ -65,7 +65,6 @@ def api_register(request):
 # ─────────────────────────────────────────────────────────────
 # API-NEW-01: SEND OTP  →  POST /auth/send-otp/
 # ─────────────────────────────────────────────────────────────
-import resend
 from django.conf import settings
 
 @api_view(['POST'])
@@ -92,19 +91,19 @@ def api_send_otp(request):
     cache.set(rate_key, True, timeout=60)
 
     try:
-        resend.api_key = settings.RESEND_API_KEY
-        resend.Emails.send({
-            "from": "TalentMatch AI <onboarding@resend.dev>",
-            "to": email,
-            "subject": "Your TalentMatch AI Verification Code",
-            "text": (
+        send_mail(
+            subject="Your TalentMatch AI Verification Code",
+            message=(
                 f"Hello,\n\n"
                 f"Your verification code is: {otp}\n\n"
                 f"This code expires in 5 minutes.\n"
                 f"If you did not request this, please ignore this email.\n\n"
                 f"— TalentMatch AI Team"
-            )
-        })
+            ),
+            from_email=None,
+            recipient_list=[email],
+            fail_silently=False,
+        )
     except Exception as e:
         cache.delete(cache_key)
         cache.delete(rate_key)
