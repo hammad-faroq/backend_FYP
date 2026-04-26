@@ -66,6 +66,7 @@ def api_register(request):
 # API-NEW-01: SEND OTP  →  POST /auth/send-otp/
 # ─────────────────────────────────────────────────────────────
 from django.conf import settings
+from mailjet_rest import Client
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -91,19 +92,31 @@ def api_send_otp(request):
     cache.set(rate_key, True, timeout=60)
 
     try:
-        send_mail(
-            subject="Your TalentMatch AI Verification Code",
-            message=(
-                f"Hello,\n\n"
-                f"Your verification code is: {otp}\n\n"
-                f"This code expires in 5 minutes.\n"
-                f"If you did not request this, please ignore this email.\n\n"
-                f"— TalentMatch AI Team"
-            ),
-            from_email=None,
-            recipient_list=[email],
-            fail_silently=False,
+        mailjet = Client(
+            auth=(settings.MAILJET_API_KEY, settings.MAILJET_SECRET_KEY),
+            version='v3.1'
         )
+        data = {
+            'Messages': [{
+                'From': {
+                    'Email': settings.MAILJET_SENDER,
+                    'Name': 'TalentMatch AI'
+                },
+                'To': [{'Email': email}],
+                'Subject': 'Your TalentMatch AI Verification Code',
+                'TextPart': (
+                    f"Hello,\n\n"
+                    f"Your verification code is: {otp}\n\n"
+                    f"This code expires in 5 minutes.\n"
+                    f"If you did not request this, please ignore this email.\n\n"
+                    f"— TalentMatch AI Team"
+                )
+            }]
+        }
+        result = mailjet.send.create(data=data)
+        if result.status_code != 200:
+            raise Exception(f"Mailjet error: {result.json()}")
+
     except Exception as e:
         cache.delete(cache_key)
         cache.delete(rate_key)

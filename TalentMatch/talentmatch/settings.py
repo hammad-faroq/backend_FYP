@@ -239,13 +239,16 @@ ASGI_APPLICATION = 'talentmatch.asgi.application'
 # DEFAULT_FROM_EMAIL = 'TalentMatch AI <{0}>'.format(os.getenv("email"))
 # RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 # Cache — required for OTP storage
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp-relay.brevo.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.getenv("BREVO_EMAIL")
-EMAIL_HOST_PASSWORD = os.getenv("BREVO_SMTP_KEY")
-DEFAULT_FROM_EMAIL = 'TalentMatch AI <a95b71001@smtp-brevo.com>'
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp-relay.brevo.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = os.getenv("BREVO_EMAIL")
+# EMAIL_HOST_PASSWORD = os.getenv("BREVO_SMTP_KEY")
+# DEFAULT_FROM_EMAIL = 'TalentMatch AI <a95b71001@smtp-brevo.com>'
+MAILJET_API_KEY = os.getenv("MAILJET_API_KEY")
+MAILJET_SECRET_KEY = os.getenv("MAILJET_SECRET_KEY")
+MAILJET_SENDER = os.getenv("MAILJET_SENDER")
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.db.DatabaseCache",
