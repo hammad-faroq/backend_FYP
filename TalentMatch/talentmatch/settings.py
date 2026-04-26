@@ -232,14 +232,14 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.getenv("email")      
-EMAIL_HOST_PASSWORD = os.getenv("password")  
+EMAIL_HOST_USER = os.getenv("email")       # <-- your Gmail address
+EMAIL_HOST_PASSWORD = os.getenv("password")   # <-- Gmail App Password (NOT your real password)
 DEFAULT_FROM_EMAIL = 'TalentMatch AI <{0}>'.format(os.getenv("email"))
-API_BASE = os.getenv("API_BASE")
  
 # Cache — required for OTP storage
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "cache_table",
     }
 }

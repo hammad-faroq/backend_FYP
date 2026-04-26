@@ -60,6 +60,9 @@ echo "✓ Migrations created!"
 echo "Applying database migrations..."
 python manage.py migrate --noinput
 echo "✓ Migrations applied!"
+echo "Creating cache table..."
+python manage.py createcachetable
+echo "✓ Cache table created!"
 
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
