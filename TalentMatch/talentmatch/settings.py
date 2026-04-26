@@ -41,7 +41,7 @@ INSTALLED_APPS = [
     # ============================================
     
     'jobs.apps.JobsConfig',
-    
+    #new app
     # External apps
     'accounts',
     'cv_manager',
