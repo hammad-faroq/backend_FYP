@@ -1,26 +1,31 @@
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from .models import Job
-from qdrant_client import QdrantClient
 from django.conf import settings
-from sentence_transformers import SentenceTransformer
 from qdrant_client.http import models as qmodels
-
-client = QdrantClient(
-    url=settings.QDRANT_URL,
-    api_key=settings.QDRANT_API_KEY
-)
-model = SentenceTransformer("all-MiniLM-L6-v2")
 
 COLLECTION_NAME = "JOBS"
 
+_client = None
+_model = None
+
+def get_client():
+    global _client
+    if _client is None:
+        from qdrant_client import QdrantClient
+        _client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)
+    return _client
+
+def get_model():
+    global _model
+    if _model is None:
+        from sentence_transformers import SentenceTransformer
+        _model = SentenceTransformer("all-MiniLM-L6-v2")
+    return _model
+
 @receiver(post_save, sender=Job)
 def job_saved(sender, instance, created, **kwargs):
-    if created:
-        print("NEW JOB INDEXED")
-    else:
-        print("JOB UPDATED - REINDEXING")
-
+    print("NEW JOB INDEXED" if created else "JOB UPDATED - REINDEXING")
     text = f"""
 Title: {instance.title}
 Company: {instance.company_name}
@@ -28,10 +33,9 @@ Location: {instance.location}
 Description: {instance.description}
 Requirements: {instance.requirements}
 """
-    vector = model.encode(text).tolist()
-
     try:
-        client.upsert(
+        vector = get_model().encode(text).tolist()
+        get_client().upsert(
             collection_name=COLLECTION_NAME,
             points=[
                 qmodels.PointStruct(
@@ -52,11 +56,9 @@ Requirements: {instance.requirements}
 @receiver(post_delete, sender=Job)
 def job_deleted(sender, instance, **kwargs):
     try:
-        client.delete(
+        get_client().delete(
             collection_name=COLLECTION_NAME,
-            points_selector=qmodels.PointIdsList(
-                points=[instance.id]
-            )
+            points_selector=qmodels.PointIdsList(points=[instance.id])
         )
     except Exception as e:
         print("Qdrant delete error:", e)
