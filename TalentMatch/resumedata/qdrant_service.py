@@ -103,12 +103,12 @@ def process_resume(resume_path):
         return {"similarity_score": 0, "summary": "Could not read resume"}
 
     resume_vector = bert_model.encode(resume_text).tolist()
-    results = qdrant.search(
+    results = qdrant.query_points(
         collection_name=COLLECTION_NAME,
-        query_vector=resume_vector,
+        query=resume_vector,
         limit=5,
         with_payload=True
-    )
+    ).points
 
     matches = []
     for r in results:
