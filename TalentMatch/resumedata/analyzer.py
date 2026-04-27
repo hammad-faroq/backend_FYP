@@ -284,45 +284,174 @@ class EnhancedResumeAnalyzer:
             resume_text = resume_text[:8000]
 
         prompt = f"""
-        You are an expert AI Resume Evaluator.
+            You are an expert AI Resume Evaluator and ATS Scoring System.
 
-        Analyze the following RESUME and JOB DESCRIPTION to determine how well the candidate matches the role.
+            Your task is to STRICTLY analyze the RESUME against the JOB DESCRIPTION and return realistic scores.
+            Do NOT be generous. Do NOT give average scores by default.
+            Scores must reflect TRUE relevance of skills, stack, experience, projects, and domain match.
 
-        ### TASKS
-        1. Identify **key technical and soft skills** from the resume
-        2. Estimate **total years of professional experience**
-        3. Detect **project or domain categories**
-        4. Compare with the job description and assign a **Groq relevance rank (0–100)**
-        5. Detect **CGPA**
-        6. Provide **improvement suggestions**
-        7. Identify **key achievements**
-        8. Compute **BERT similarity score** with job description (0–100)
-        9. Compute **custom ML model score** (0–100)
+            ==================================================
+            INPUTS
+            ==================================================
 
-        Return valid JSON in this format:
+            RESUME:
+            {resume_text}
 
-        {{
-        "groq_rank": <0-100>,
-        "bert_similarity": <0-100>,
-        "custom_model_score": <0-100>,
-        "skills": ["skill1", "skill2", ...],
-        "total_experience": "<number> years",
-        "CGPA": "<number or 'N/A'>",
-        "project_category": ["category1", "category2", ...],
-        "strengths": ["string"],
-        "weaknesses": ["string"],
-        "improvement_suggestions": ["string"],
-        "key_achievements": ["string"],
-        "summary": "string"
-        }}
+            JOB DESCRIPTION:
+            {job_description}
 
-        ### RESUME:
-        {resume_text}
+            ==================================================
+            SCORING FRAMEWORK (VERY IMPORTANT)
+            ==================================================
 
-        ### JOB DESCRIPTION:
-        {job_description}
-        """
+            Use this exact rubric:
 
+            0 - 20   = Completely irrelevant profile, wrong field, no matching skills
+            21 - 35  = Very weak match, different stack/domain, few transferable skills
+            36 - 50  = Partial beginner match, some overlapping tools but many gaps
+            51 - 65  = Moderate match, some strong skills but missing major requirements
+            66 - 80  = Good match, most skills match with minor gaps
+            81 - 92  = Strong match, highly relevant profile with strong alignment
+            93 - 100 = Exceptional perfect fit
+
+            ==================================================
+            HARD PENALTY RULES (MANDATORY)
+            ==================================================
+
+            1. If JOB requires MERN Stack
+            and RESUME is Django / Flask / FastAPI only:
+            overall_score MUST be between 15 and 35
+
+            2. If JOB requires Data Analyst / BI / SQL / Power BI / Excel
+            and RESUME is Web Development only:
+            overall_score MUST be between 10 and 30
+
+            3. If JOB requires AI Engineer / ML / NLP / Deep Learning
+            and RESUME has no ML/AI projects or skills:
+            overall_score MUST be between 10 and 35
+
+            4. If JOB requires React / Node / MongoDB
+            but resume has none:
+            technical_match MUST be very low
+
+            5. If Resume title/projects differ completely from job domain:
+            apply severe penalty
+
+            6. Soft skills alone can NEVER create high score
+
+            ==================================================
+            STACK RECOGNITION RULES
+            ==================================================
+
+            Recognize domains carefully:
+
+            Web Development:
+            MERN, React, Node.js, Express, MongoDB, Django, Flask, Laravel
+
+            Data Analytics:
+            SQL, Power BI, Tableau, Excel, Pandas, NumPy, Statistics
+
+            AI / ML:
+            Machine Learning, Deep Learning, NLP, TensorFlow, PyTorch, Scikit-learn, LLM
+
+            Cloud / DevOps:
+            AWS, Docker, Kubernetes, CI/CD
+
+            Cybersecurity:
+            SOC, SIEM, Pen Testing, Network Security
+
+            If job and resume belong to different domains,
+            reduce score heavily.
+
+            ==================================================
+            SCORING COMPONENTS
+            ==================================================
+
+            Calculate separately:
+
+            1. technical_match_score (0-100)
+            2. experience_match_score (0-100)
+            3. project_relevance_score (0-100)
+            4. education_match_score (0-100)
+            5. keyword_match_score (0-100)
+            6. overall_score (0-100)
+
+            Overall score should be based mostly on:
+            - Technical Skills = 40%
+            - Projects = 25%
+            - Experience = 20%
+            - Education = 5%
+            - Keyword relevance = 10%
+
+            ==================================================
+            BERT + CUSTOM SCORE RULES
+            ==================================================
+
+            bert_score:
+            Semantic similarity score.
+            May be higher even if stack differs.
+
+            custom_ml_score:
+            Strict recruiter style score based on skills + stack + domain.
+
+            IMPORTANT:
+            Do NOT make bert_score and custom_ml_score identical.
+
+            Example:
+            MERN resume vs MERN job:
+            bert = 84
+            custom = 88
+
+            Django resume vs MERN job:
+            bert = 62
+            custom = 28
+
+            AI resume vs AI job:
+            bert = 86
+            custom = 91
+
+            ==================================================
+            YEARS OF EXPERIENCE
+            ==================================================
+
+            Estimate realistic years from internships, jobs, freelance, projects.
+
+            ==================================================
+            CGPA
+            ==================================================
+
+            Extract CGPA if present else N/A
+
+            ==================================================
+            OUTPUT FORMAT (VALID JSON ONLY)
+            ==================================================
+
+            
+            {{
+            "groq_rank": <0-100>,
+            "bert_similarity": <0-100>,
+            "custom_model_score": <0-100>,
+            "skills": ["skill1", "skill2", ...],
+            "total_experience": "<number> years",
+            "CGPA": "<number or 'N/A'>",
+            "project_category": ["category1", "category2", ...],
+            "strengths": ["string"],
+            "weaknesses": ["string"],
+            "improvement_suggestions": ["string"],
+            "key_achievements": ["string"],
+            "summary": "string"
+            }}
+
+            ==================================================
+            FINAL STRICT INSTRUCTION
+            ==================================================
+
+            If resume is unrelated to the job role, score LOW.
+            Do NOT inflate scores.
+            Use penalties aggressively.
+            Be realistic like a recruiter.
+            Return ONLY valid JSON.
+            """
         try:
             response = self.client.chat.completions.create(
                 model=self.models["fast"],

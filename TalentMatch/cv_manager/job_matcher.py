@@ -46,7 +46,7 @@ def find_similar_jobs(user, limit=5, save_to_db=True):
 
         # ---------------- Connect to Qdrant ----------------
 
-# ... later in your code ...
+        # ... later in your code ...
         client = get_qdrant_client()
 
         today = datetime.now().date()
