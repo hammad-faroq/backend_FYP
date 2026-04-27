@@ -246,9 +246,11 @@ ASGI_APPLICATION = 'talentmatch.asgi.application'
 # EMAIL_HOST_USER = os.getenv("BREVO_EMAIL")
 # EMAIL_HOST_PASSWORD = os.getenv("BREVO_SMTP_KEY")
 # DEFAULT_FROM_EMAIL = 'TalentMatch AI <a95b71001@smtp-brevo.com>'
-MAILJET_API_KEY = os.getenv("MAILJET_API_KEY")
-MAILJET_SECRET_KEY = os.getenv("MAILJET_SECRET_KEY")
-MAILJET_SENDER = os.getenv("MAILJET_SENDER")
+# MAILJET_API_KEY = os.getenv("MAILJET_API_KEY")
+# MAILJET_SECRET_KEY = os.getenv("MAILJET_SECRET_KEY")
+# MAILJET_SENDER = os.getenv("MAILJET_SENDER")
+POSTMARK_API_KEY = os.getenv("POSTMARK_API_KEY")
+POSTMARK_SENDER = os.getenv("POSTMARK_SENDER")
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.db.DatabaseCache",

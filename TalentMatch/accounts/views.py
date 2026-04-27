@@ -63,10 +63,9 @@ def api_register(request):
 
 
 # ─────────────────────────────────────────────────────────────
-# API-NEW-01: SEND OTP  →  POST /auth/send-otp/
+# API-06: PASSWORD RESET
 # ─────────────────────────────────────────────────────────────
-from django.conf import settings
-from mailjet_rest import Client
+from postmarker.core import PostmarkClient
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -92,31 +91,19 @@ def api_send_otp(request):
     cache.set(rate_key, True, timeout=60)
 
     try:
-        mailjet = Client(
-            auth=(settings.MAILJET_API_KEY, settings.MAILJET_SECRET_KEY),
-            version='v3.1'
+        postmark = PostmarkClient(server_token=settings.POSTMARK_API_KEY)
+        postmark.emails.send(
+            From=settings.POSTMARK_SENDER,
+            To=email,
+            Subject='Your TalentMatch AI Verification Code',
+            TextBody=(
+                f"Hello,\n\n"
+                f"Your verification code is: {otp}\n\n"
+                f"This code expires in 5 minutes.\n"
+                f"If you did not request this, please ignore this email.\n\n"
+                f"— TalentMatch AI Team"
+            )
         )
-        data = {
-            'Messages': [{
-                'From': {
-                    'Email': settings.MAILJET_SENDER,
-                    'Name': 'TalentMatch AI'
-                },
-                'To': [{'Email': email}],
-                'Subject': 'Your TalentMatch AI Verification Code',
-                'TextPart': (
-                    f"Hello,\n\n"
-                    f"Your verification code is: {otp}\n\n"
-                    f"This code expires in 5 minutes.\n"
-                    f"If you did not request this, please ignore this email.\n\n"
-                    f"— TalentMatch AI Team"
-                )
-            }]
-        }
-        result = mailjet.send.create(data=data)
-        if result.status_code != 200:
-            raise Exception(f"Mailjet error: {result.json()}")
-
     except Exception as e:
         cache.delete(cache_key)
         cache.delete(rate_key)
@@ -125,8 +112,44 @@ def api_send_otp(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
-    return Response({"message": "OTP sent successfully."}, status=status.HTTP_200_OK)# API-NEW-02: VERIFY OTP  →  POST /auth/verify-otp/
-# ─────────────────────────────────────────────────────────────
+    return Response({"message": "OTP sent successfully."}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def api_password_reset_request(request):
+    email = request.data.get('email')
+    if not email:
+        return Response({"error": "Email is required"}, status=400)
+
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({"error": "No user with this email"}, status=404)
+
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    cache_key = f"pwd_reset_{uid}"
+    cache.set(cache_key, True, timeout=3600)
+    reset_link = f"{settings.FRONTEND_URL}/password-reset-confirm/{uid}/{token}/"
+
+    try:
+        postmark = PostmarkClient(server_token=settings.POSTMARK_API_KEY)
+        postmark.emails.send(
+            From=settings.POSTMARK_SENDER,
+            To=user.email,
+            Subject='Password Reset Request — TalentMatch AI',
+            TextBody=(
+                f"Click this link to reset your password:\n\n"
+                f"{reset_link}\n\n"
+                f"This link expires in 1 hour."
+            )
+        )
+    except Exception as e:
+        return Response({"error": f"Email failed: {str(e)}"}, status=500)
+
+    return Response({"message": "Password reset email sent"}, status=200)
+ #─────────────────────────────────────────────────────────────
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -241,40 +264,6 @@ def api_check_account_status(request):
 
     status_message = AccountLockingService.check_account_status(email)
     return Response({"status": status_message}, status=status.HTTP_200_OK)
-
-
-# ─────────────────────────────────────────────────────────────
-# API-06: PASSWORD RESET
-# ─────────────────────────────────────────────────────────────
-
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def api_password_reset_request(request):
-    email = request.data.get('email')
-    if not email:
-        return Response({"error": "Email is required"}, status=400)
-
-    try:
-        user = User.objects.get(email=email)
-    except User.DoesNotExist:
-        return Response({"error": "No user with this email"}, status=404)
-
-    uid = urlsafe_base64_encode(force_bytes(user.pk))
-    token = default_token_generator.make_token(user)
-    cache_key = f"pwd_reset_{uid}"
-    cache.set(cache_key, True, timeout=3600)  # 1 hour = 3600 sec
-    reset_link = f"{settings.API_BASE}/password-reset-confirm/{uid}/{token}/"
-
-    send_mail(
-        subject="Password Reset Request — TalentMatch AI",
-        message=f"Click this link to reset your password:\n\n{reset_link}\n\nThis link expires in 24 hours.",
-        from_email=None,
-        recipient_list=[user.email],
-        fail_silently=False,
-    )
-
-    return Response({"message": "Password reset email sent"}, status=200)
-
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
