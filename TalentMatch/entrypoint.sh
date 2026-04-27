@@ -68,15 +68,6 @@ echo "Collecting static files..."
 python manage.py collectstatic --noinput
 echo "✓ Static files collected!"
 
-########################################
-# Sync Qdrant job descriptions
-########################################
-echo "Syncing Qdrant job descriptions..."
-python manage.py shell -c "
-from resumedata.qdrant_service import sync_job_descriptions
-sync_job_descriptions()
-print('✓ Qdrant sync complete!')
-" || echo "⚠️ Qdrant sync failed, continuing anyway..."
 
 ########################################
 # Start server

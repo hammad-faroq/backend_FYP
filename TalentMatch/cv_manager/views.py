@@ -356,10 +356,10 @@ class ResumeUploadView(APIView):
             )
 
             # # ------------------- STEP 10 — Send analysis email -------------------
-            try:
-                self.send_analysis_email(user, analysis_result, parsed_resume.id)
-            except Exception as e:
-                logger.error(f"❌ Email notification failed: {e}", exc_info=True)
+            # try:
+            #     self.send_analysis_email(user, analysis_result, parsed_resume.id)
+            # except Exception as e:
+            #     logger.error(f"❌ Email notification failed: {e}", exc_info=True)
 
             # ------------------- FINAL RESPONSE -------------------
             return Response({
