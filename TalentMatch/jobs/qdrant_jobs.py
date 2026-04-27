@@ -2,16 +2,19 @@ from qdrant_client.http import models
 from jobs.models import Job
 from django.conf import settings
 from utils.qdrant_client import get_qdrant_client
-client = get_qdrant_client()
+
 from utils.ml_models import get_sentence_transformer
 
 def get_model():
     return get_sentence_transformer()
+def get_client():
+    return get_qdrant_client()
 
 COLLECTION_NAME = "JOBS"
 
 
 def sync_jobs_to_qdrant():
+    client = get_client()
     # create collection only if not exists
     collections = [c.name for c in client.get_collections().collections]
 
@@ -28,6 +31,7 @@ def sync_jobs_to_qdrant():
     print(f"Syncing {jobs.count()} jobs")
 
     points = []
+    model = get_model()
 
     for job in jobs:
         text = f"{job.title}. {job.description}. {job.company_name}"

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # ✅ LAZY LOADING: Initialize as None, load on first use
 _analyzer = None
 
-def get_qdrant_client():
+def qdrant_client():
     """Lazy load Qdrant client - loads only when first needed"""
     return get_qdrant_client()
 

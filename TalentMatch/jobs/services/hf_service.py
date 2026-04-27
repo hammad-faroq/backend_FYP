@@ -1,10 +1,18 @@
 import time
 import logging
 import json
+import requests
 
 logger = logging.getLogger(__name__)
 
 HF_SPACE_NAME = "Irfaniiioo/cvjdgradio"
+
+def wake_up_space():
+    try:
+        requests.get("https://irfaniiioo-cvjdgradio.hf.space", timeout=30)
+        time.sleep(5)  # wait for it to wake up
+    except:
+        pass
 
 def normalize_hf_result(hf_data: dict) -> dict:
     """Normalize the HF API response to a consistent format."""
@@ -28,7 +36,8 @@ def normalize_hf_result(hf_data: dict) -> dict:
     }
 
 
-def call_hf_model_with_retry(resume_text: str, job_description: str, max_retries=2, delay=10):
+def call_hf_model_with_retry(resume_text: str, job_description: str, max_retries=3, delay=15):
+    wake_up_space()
     for attempt in range(max_retries):
         try:
             logger.info(f"HF API call attempt {attempt + 1}/{max_retries}")

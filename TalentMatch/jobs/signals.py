@@ -17,8 +17,8 @@ def get_client():
 def get_model():
     global _model
     if _model is None:
-        from sentence_transformers import SentenceTransformer
-        _model = SentenceTransformer("all-MiniLM-L6-v2")
+        from utils.ml_models import get_sentence_transformer
+        _model = get_sentence_transformer()  # uses cached version
     return _model
 
 @receiver(post_save, sender=Job)
