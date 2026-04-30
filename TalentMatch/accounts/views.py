@@ -161,8 +161,8 @@ def google_auth(request):
 # API-NEW-01: SEND OTP  →  POST /auth/send-otp/
 # ─────────────────────────────────────────────────────────────
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
+# @api_view(['POST'])
+# @permission_classes([AllowAny])
 
 # ─────────────────────────────────────────────────────────────
 # API-06: PASSWORD RESET
@@ -198,13 +198,14 @@ def api_send_otp(request):
             From=settings.POSTMARK_SENDER,
             To=email,
             Subject='Your TalentMatch AI Verification Code',
-            TextBody=(
-                f"Hello,\n\n"
-                f"Your verification code is: {otp}\n\n"
-                f"This code expires in 5 minutes.\n"
-                f"If you did not request this, please ignore this email.\n\n"
-                f"— TalentMatch AI Team"
-            )
+            TextBody=f"""Hello,
+
+                    Your verification code is: {otp}
+
+                    This code expires in 5 minutes.
+                    If you did not request this, ignore this email.
+
+                    — TalentMatch AI Team"""
         )
     except Exception as e:
         cache.delete(cache_key)
