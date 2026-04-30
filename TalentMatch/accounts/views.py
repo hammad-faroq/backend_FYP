@@ -19,6 +19,8 @@ import random
 import string
 
 from .services.auth_service import AccountLockingService
+import os 
+from postmarker.core import PostmarkClient
 
 User = get_user_model()
 
@@ -60,12 +62,112 @@ def api_register(request):
     )
 
     return Response({"message": "User registered successfully"}, status=status.HTTP_201_CREATED)
+import os
+import requests as http_requests
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.authtoken.models import Token
+from django.contrib.auth import get_user_model
+from user_profile.models import UserProfile
 
+User = get_user_model()
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def google_auth(request):
+    access_token = request.data.get('access_token')
+    role = request.data.get('role')  # ← new
+
+    if not access_token:
+        return Response({"error": "access_token is required"}, status=400)
+
+    resp = http_requests.get(
+        "https://www.googleapis.com/oauth2/v3/userinfo",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+    if resp.status_code != 200:
+        return Response({"error": "Invalid Google token"}, status=401)
+
+    info = resp.json()
+    email = info.get('email')
+    first_name = info.get('given_name', '')
+    last_name = info.get('family_name', '')
+    picture = info.get('picture', '')
+
+    if not email:
+        return Response({"error": "Email not provided by Google"}, status=400)
+
+    # Check if user already exists
+    existing_user = User.objects.filter(email=email).first()
+
+    if existing_user:
+        # Existing user — just log them in
+        token, _ = Token.objects.get_or_create(user=existing_user)
+        return Response({
+            "token": token.key,
+            "user_id": existing_user.id,
+            "role": existing_user.role,
+            "is_superuser": existing_user.is_superuser,
+            "first_name": existing_user.first_name,
+            "picture": picture,
+            "needs_role": False,
+        })
+    
+    # New user — if no role provided, ask frontend to collect it
+    if not role:
+        return Response({
+            "needs_role": True,
+            "email": email,
+            "first_name": first_name,
+            "last_name": last_name,
+            "picture": picture,
+            "access_token": access_token,  # pass back so frontend can resend
+        })
+
+    if role not in ['job_seeker', 'hr']:
+        return Response({"error": "Invalid role"}, status=400)
+
+    # Create new user with chosen role
+    user = User.objects.create_user(
+        email=email,
+        password=None,
+        first_name=first_name,
+        last_name=last_name,
+        role=role,
+    )
+    user.set_unusable_password()
+    user.save()
+
+    if picture:
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        if not profile.profile_picture:
+            profile.google_picture_url = picture
+            profile.save()
+
+    token, _ = Token.objects.get_or_create(user=user)
+    return Response({
+        "token": token.key,
+        "user_id": user.id,
+        "role": user.role,
+        "is_superuser": user.is_superuser,
+        "first_name": user.first_name,
+        "picture": picture,
+        "needs_role": False,
+    })
+
+
+# ─────────────────────────────────────────────────────────────
+# API-NEW-01: SEND OTP  →  POST /auth/send-otp/
+# ─────────────────────────────────────────────────────────────
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
 
 # ─────────────────────────────────────────────────────────────
 # API-06: PASSWORD RESET
 # ─────────────────────────────────────────────────────────────
-from postmarker.core import PostmarkClient
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -115,41 +217,68 @@ def api_send_otp(request):
     return Response({"message": "OTP sent successfully."}, status=status.HTTP_200_OK)
 
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def api_password_reset_request(request):
-    email = request.data.get('email')
-    if not email:
-        return Response({"error": "Email is required"}, status=400)
 
-    try:
-        user = User.objects.get(email=email)
-    except User.DoesNotExist:
-        return Response({"error": "No user with this email"}, status=404)
+# def api_send_otp(request):
+#     """
+#     Generates a 6-digit OTP, stores it in Django cache for 5 minutes,
+#     and emails it to the user.
+#     Called BEFORE registration — email must NOT already exist.
+#     """
+#     email = request.data.get('email', '').strip().lower()
 
-    uid = urlsafe_base64_encode(force_bytes(user.pk))
-    token = default_token_generator.make_token(user)
-    cache_key = f"pwd_reset_{uid}"
-    cache.set(cache_key, True, timeout=3600)
-    reset_link = f"{settings.FRONTEND_URL}/password-reset-confirm/{uid}/{token}/"
+#     if not email:
+#         return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    try:
-        postmark = PostmarkClient(server_token=settings.POSTMARK_API_KEY)
-        postmark.emails.send(
-            From=settings.POSTMARK_SENDER,
-            To=user.email,
-            Subject='Password Reset Request — TalentMatch AI',
-            TextBody=(
-                f"Click this link to reset your password:\n\n"
-                f"{reset_link}\n\n"
-                f"This link expires in 1 hour."
-            )
-        )
-    except Exception as e:
-        return Response({"error": f"Email failed: {str(e)}"}, status=500)
+#     # Block if email is already registered
+#     if User.objects.filter(email=email).exists():
+#         return Response({"error": "An account with this email already exists."}, status=status.HTTP_400_BAD_REQUEST)
 
-    return Response({"message": "Password reset email sent"}, status=200)
- #─────────────────────────────────────────────────────────────
+#     # Rate limiting: block if OTP was sent less than 60 seconds ago
+#     rate_key = f"otp_rate_{email}"
+#     if cache.get(rate_key):
+#         return Response(
+#             {"error": "Please wait 60 seconds before requesting a new OTP."},
+#             status=status.HTTP_429_TOO_MANY_REQUESTS
+#         )
+
+#     # Generate and store OTP (expires in 5 minutes = 300 seconds)
+#     otp = generate_otp()
+#     cache_key = f"otp_{email}"
+#     cache.set(cache_key, otp, timeout=300)
+
+#     # Set rate-limit flag for 60 seconds
+#     cache.set(rate_key, True, timeout=60)
+
+#     # Send email
+#     try:
+#         send_mail(
+#             subject="Your TalentMatch AI Verification Code",
+#             message=(
+#                 f"Hello,\n\n"
+#                 f"Your verification code is: {otp}\n\n"
+#                 f"This code expires in 5 minutes.\n"
+#                 f"If you did not request this, please ignore this email.\n\n"
+#                 f"— TalentMatch AI Team"
+#             ),
+#             from_email=None,   # Uses DEFAULT_FROM_EMAIL from settings.py
+#             recipient_list=[email],
+#             fail_silently=False,
+#         )
+#     except Exception as e:
+#         # Clean up cache if email fails so user can retry
+#         cache.delete(cache_key)
+#         cache.delete(rate_key)
+#         return Response(
+#             {"error": "Failed to send email. Please try again."},
+#             status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#         )
+
+#     return Response({"message": "OTP sent successfully."}, status=status.HTTP_200_OK)
+
+
+# ─────────────────────────────────────────────────────────────
+# API-NEW-02: VERIFY OTP  →  POST /auth/verify-otp/
+# ─────────────────────────────────────────────────────────────
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -264,6 +393,65 @@ def api_check_account_status(request):
 
     status_message = AccountLockingService.check_account_status(email)
     return Response({"status": status_message}, status=status.HTTP_200_OK)
+
+
+# ─────────────────────────────────────────────────────────────
+# API-06: PASSWORD RESET
+# ─────────────────────────────────────────────────────────────
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def api_password_reset_request(request):
+    email = request.data.get('email')
+    if not email:
+        return Response({"error": "Email is required"}, status=400)
+
+    # ✅ Rate limit: max 2 password reset emails per day per email
+    rate_key = f"pwd_reset_rate_{email}"
+    attempts = cache.get(rate_key, 0)
+    if attempts >= 2:
+        return Response(
+            {"error": "You can only request 2 password resets per day. Please try again tomorrow."},
+            status=429
+        )
+
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({"error": "No user with this email"}, status=404)
+
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    cache_key = f"pwd_reset_{uid}"
+    cache.set(cache_key, True, timeout=3600)
+
+    reset_link = f"{settings.API_BASE}/password-reset-confirm/{uid}/{token}/"
+
+    postmark = PostmarkClient(server_token=settings.POSTMARK_API_KEY)
+    postmark.emails.send(
+            From=settings.POSTMARK_SENDER,
+            To=email,
+            Subject='Password Reset Request — TalentMatch AI',
+            TextBody=(
+                f"Click this link to reset your password:\n\n{reset_link}\n\nThis link expires in 1 hour.",
+            )
+        )
+
+    # send_mail(
+    #     subject="Password Reset Request — TalentMatch AI",
+    #     message=f"Click this link to reset your password:\n\n{reset_link}\n\nThis link expires in 1 hour.",
+    #     from_email=None,
+    #     recipient_list=[user.email],
+    #     fail_silently=False,
+    # )
+
+    # ✅ Increment counter, expires at midnight (seconds until end of day)
+    from django.utils.timezone import now
+    seconds_until_midnight = 86400 - (now().hour * 3600 + now().minute * 60 + now().second)
+    cache.set(rate_key, attempts + 1, timeout=seconds_until_midnight)
+
+    return Response({"message": "Password reset email sent"}, status=200)
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])

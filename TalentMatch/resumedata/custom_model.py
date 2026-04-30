@@ -1,24 +1,33 @@
 import os
-from sentence_transformers import  util
+import joblib
+import numpy as np
+from django.conf import settings
 from .analyzer import extract_text_from_resume
 
-from utils.ml_models import get_sentence_transformer
+# ------------------------------
+# Load models ONCE at startup
+# ------------------------------
+if not os.path.exists(settings.RESUME_RANKER_MODEL_PATH):
+    raise FileNotFoundError(f"❌ Model not found at: {settings.RESUME_RANKER_MODEL_PATH}")
 
-def get_embedding_model():
-    return get_sentence_transformer()
+if not os.path.exists(settings.EMBEDDING_MODEL_PATH):
+    raise FileNotFoundError(f"❌ Embedding model not found at: {settings.EMBEDDING_MODEL_PATH}")
 
+resume_ranker_model = joblib.load(settings.RESUME_RANKER_MODEL_PATH)
+embedding_model = joblib.load(settings.EMBEDDING_MODEL_PATH)
+
+print("✅ Custom model & embedding model loaded successfully")
+
+
+# ------------------------------
+# Predict score
+# ------------------------------
 def predict_resume_score(resume_path, job_description):
-    model = get_embedding_model()
-    
     resume_text = extract_text_from_resume(resume_path)
     if not resume_text:
         return 0.0
 
-    resume_vec = model.encode(resume_text, convert_to_tensor=True)
-    job_vec = model.encode(job_description, convert_to_tensor=True)
-    
-    score = util.cos_sim(resume_vec, job_vec).item()
-    
-    # convert to 0-100
-    score = round((score + 1) / 2 * 100, 2)
-    return score
+    resume_vec = embedding_model.encode([resume_text])[0]  # 384 dims
+    features = resume_vec.reshape(1, -1)
+    score = resume_ranker_model.predict(features)[0]
+    return round(float(score), 2)

@@ -34,6 +34,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'university',
             'graduation_year',
             'profile_picture',
+            'google_picture_url',
             'bio',
             'is_public',
             'created_at',

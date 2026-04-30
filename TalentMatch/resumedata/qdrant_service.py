@@ -7,15 +7,15 @@ from utils.qdrant_client import get_qdrant_client
 from utils.ml_models import get_sentence_transformer
 
 COLLECTION_NAME = "JOBS"
-
-def get_bert_model():
+def get_model():
     return get_sentence_transformer()
-
-def get_qdrant():
+def get_client():
     return get_qdrant_client()
+
 
 # ------------------------- RESUME TEXT EXTRACTION -------------------------
 def extract_text_from_resume(file_path):
+    """Extract text from resume files - standalone function"""
     ext = os.path.splitext(file_path)[1].lower()
     text = ""
     try:
@@ -34,15 +34,18 @@ def extract_text_from_resume(file_path):
     except Exception as e:
         text = f"[Error reading file: {e}]"
     return text.strip()
-
 def ensure_collection_exists():
-    qdrant = get_qdrant()
+    qdrant=get_client()
     collections = qdrant.get_collections().collections
     names = [c.name for c in collections]
+
     if COLLECTION_NAME not in names:
         qdrant.create_collection(
             collection_name=COLLECTION_NAME,
-            vectors_config=qmodels.VectorParams(size=384, distance=qmodels.Distance.COSINE)
+            vectors_config=qmodels.VectorParams(
+                size=384,
+                distance=qmodels.Distance.COSINE
+            )
         )
         print("✅ JOBS collection created")
     else:
@@ -51,8 +54,7 @@ def ensure_collection_exists():
 # ------------------------- SYNC JOBS TO QDRANT -------------------------
 def sync_job_descriptions():
     print("🔄 Syncing job descriptions to Qdrant...")
-    qdrant = get_qdrant()
-    bert_model = get_bert_model()
+
     ensure_collection_exists()
 
     jobs = Job.objects.all()
@@ -62,6 +64,7 @@ def sync_job_descriptions():
 
     texts = []
     valid_jobs = []
+
     for job in jobs:
         if job.description:
             text = f"""
@@ -73,8 +76,9 @@ def sync_job_descriptions():
             """
             texts.append(text)
             valid_jobs.append(job)
-
+    bert_model=get_model()
     vectors = bert_model.encode(texts)
+
     points = []
     for job, vec in zip(valid_jobs, vectors):
         points.append(
@@ -89,20 +93,23 @@ def sync_job_descriptions():
                 }
             )
         )
+    qdrant=get_client()
+    qdrant.upsert(
+        collection_name=COLLECTION_NAME,
+        points=points
+    )
 
-    qdrant.upsert(collection_name=COLLECTION_NAME, points=points)
     print(f"✅ {len(points)} jobs synced safely.")
-
 # ------------------------- RESUME ANALYSIS -------------------------
 def process_resume(resume_path):
-    qdrant = get_qdrant()
-    bert_model = get_bert_model()
-    
     resume_text = extract_text_from_resume(resume_path)
+
     if not resume_text:
         return {"similarity_score": 0, "summary": "Could not read resume"}
-
+    bert_model=get_model()
+    qdrant=get_client()
     resume_vector = bert_model.encode(resume_text).tolist()
+
     results = qdrant.query_points(
         collection_name=COLLECTION_NAME,
         query=resume_vector,
@@ -112,11 +119,13 @@ def process_resume(resume_path):
 
     matches = []
     for r in results:
+        score = float(r.score)
+
         matches.append({
             "job_id": r.payload.get("job_id"),
             "title": r.payload.get("title"),
             "company": r.payload.get("company"),
-            "score": round(float(r.score), 4)
+            "score": round(score, 4)
         })
 
     return {

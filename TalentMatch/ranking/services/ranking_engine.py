@@ -3,16 +3,15 @@ import numpy as np
 from django.conf import settings
 from jobs.models import Job, JobApplication
 from resumedata.analyzer import extract_text_from_resume    # reuse your extractor
+from qdrant_client.http import models as qmodels
 
 from ranking.ml_loader import get_rank_model, get_embedding_model
-
-# If you use Qdrant for job embeddings, set connection here (optional)
 from utils.qdrant_client import get_qdrant_client
-qdrant_client = None
-try:
-    qdrant_client = get_qdrant_client()
-except Exception:
-    qdrant_client = None
+
+
+def get_client():
+    return get_qdrant_client()
+
 
 def embed_text(text: str):
     embed_model = get_embedding_model()
@@ -24,6 +23,7 @@ def embed_text(text: str):
 
 def get_job_vector_from_qdrant(job_id: int, collection="job_vectors"):
     """Try to retrieve job vector from Qdrant if available."""
+    qdrant_client=get_client()
     if not qdrant_client:
         return None
     try:

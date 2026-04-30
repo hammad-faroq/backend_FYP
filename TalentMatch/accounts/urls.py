@@ -6,7 +6,7 @@ urlpatterns = [
     path('dashboard/', views.api_dashboard, name='api_dashboard'),
     path('logout/', views.api_logout, name='api_logout'),
     path('register/',views.api_register, name='api_register'),
-
+    path('google-auth/', views.google_auth, name='google_auth'),
     # Password reset URLs
     path('password-reset/', views.api_password_reset_request, name='api_password_reset'),
     path('password-reset-confirm/<uidb64>/<token>/', views.api_password_reset_confirm, name='api_password_reset_confirm'),

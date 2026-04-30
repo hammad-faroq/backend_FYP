@@ -74,6 +74,7 @@ class UserProfile(models.Model):
         blank=True,
         null=True
     )
+    google_picture_url = models.URLField(blank=True, null=True)  # ✅ add this
     bio = models.TextField(blank=True)
     is_public = models.BooleanField(default=True)
     

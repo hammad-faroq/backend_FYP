@@ -3,27 +3,23 @@ from django.dispatch import receiver
 from .models import Job
 from django.conf import settings
 from qdrant_client.http import models as qmodels
-
-COLLECTION_NAME = "JOBS"
-
-
-_model = None
-
 from utils.qdrant_client import get_qdrant_client
+from utils.ml_models import get_sentence_transformer
 
+def get_model():
+    return get_sentence_transformer()
 def get_client():
     return get_qdrant_client()
 
-def get_model():
-    global _model
-    if _model is None:
-        from utils.ml_models import get_sentence_transformer
-        _model = get_sentence_transformer()  # uses cached version
-    return _model
+COLLECTION_NAME = "JOBS"
 
 @receiver(post_save, sender=Job)
 def job_saved(sender, instance, created, **kwargs):
-    print("NEW JOB INDEXED" if created else "JOB UPDATED - REINDEXING")
+    if created:
+        print("NEW JOB INDEXED")
+    else:
+        print("JOB UPDATED - REINDEXING")
+
     text = f"""
 Title: {instance.title}
 Company: {instance.company_name}
@@ -31,9 +27,12 @@ Location: {instance.location}
 Description: {instance.description}
 Requirements: {instance.requirements}
 """
+    model=get_model()
+    vector = model.encode(text).tolist()
+    client=get_client()
+
     try:
-        vector = get_model().encode(text).tolist()
-        get_client().upsert(
+        client.upsert(
             collection_name=COLLECTION_NAME,
             points=[
                 qmodels.PointStruct(
@@ -53,10 +52,13 @@ Requirements: {instance.requirements}
 
 @receiver(post_delete, sender=Job)
 def job_deleted(sender, instance, **kwargs):
+    client=get_client()
     try:
-        get_client().delete(
+        client.delete(
             collection_name=COLLECTION_NAME,
-            points_selector=qmodels.PointIdsList(points=[instance.id])
+            points_selector=qmodels.PointIdsList(
+                points=[instance.id]
+            )
         )
     except Exception as e:
         print("Qdrant delete error:", e)

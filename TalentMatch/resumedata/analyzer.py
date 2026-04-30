@@ -403,7 +403,7 @@ class EnhancedResumeAnalyzer:
             custom = 88
 
             Django resume vs MERN job:
-            bert = 62
+            bert = 22
             custom = 28
 
             AI resume vs AI job:
@@ -452,6 +452,7 @@ class EnhancedResumeAnalyzer:
             Be realistic like a recruiter.
             Return ONLY valid JSON.
             """
+
         try:
             response = self.client.chat.completions.create(
                 model=self.models["fast"],

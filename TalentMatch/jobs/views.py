@@ -1,6 +1,7 @@
 from django.conf import settings
 from jobs.services.ranking import calculate_rank
-from utils.ml_models import get_sentence_transformer
+from qdrant_client.http import models
+from qdrant_client.http import models as qmodels
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -11,35 +12,17 @@ from resumedata.analyzer import EnhancedResumeAnalyzer
 import os
 from django.utils import timezone
 import logging
-from utils.qdrant_client import get_qdrant_client
+
 logger = logging.getLogger(__name__)
-
-# ✅ LAZY LOADING: Initialize as None, load on first use
-_analyzer = None
-
-def qdrant_client():
-    """Lazy load Qdrant client - loads only when first needed"""
-    return get_qdrant_client()
-
-def get_sentence_model():
-    """Lazy load SentenceTransformer model - loads only when first needed"""
-    return get_sentence_transformer()
-
-def get_analyzer():
-    """Lazy load EnhancedResumeAnalyzer - loads only when first needed"""
-    global _analyzer
-    if _analyzer is None:
-        _analyzer = EnhancedResumeAnalyzer()
-        logger.info("✅ EnhancedResumeAnalyzer loaded")
-    return _analyzer
-
-COLLECTION_NAME = "JOBS"
 
 
 # CREATE JOB (HR only)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_job(request):
+    if request.user.role != 'hr':
+        return Response({"error": "You are not allowed to create this job."},
+                        status=status.HTTP_403_FORBIDDEN)
     serializer = JobSerializer(data=request.data)
     if serializer.is_valid():
         job = serializer.save(created_by=request.user)
@@ -129,6 +112,117 @@ def delete_job(request, job_id):
     return Response({"message": "Job deleted successfully."})
 
 
+analyzer = EnhancedResumeAnalyzer()
+
+# @api_view(['POST'])
+# @permission_classes([IsAuthenticated])
+# def apply_to_job(request, job_id):
+#     user = request.user
+
+#     # Only job seekers can apply
+#     if user.role != 'job_seeker':
+#         return Response({"error": "Only job seekers can apply to jobs."}, status=status.HTTP_403_FORBIDDEN)
+
+#     # Check if job exists
+#     try:
+#         job = Job.objects.get(id=job_id)
+#     except Job.DoesNotExist:
+#         return Response({"error": "Job not found."}, status=status.HTTP_404_NOT_FOUND)
+
+#     # Check if deadline has passed
+#     from django.utils import timezone
+#     if job.application_deadline and job.application_deadline < timezone.now().date():
+#         return Response({
+#             "error": f"Application deadline has passed. The deadline was {job.application_deadline}."
+#         }, status=status.HTTP_400_BAD_REQUEST)
+
+#     resume_file = request.FILES.get('resume')
+#     if not resume_file:
+#         return Response({"error": "Resume file is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+#     try:
+#         resumes_dir = os.path.join(settings.MEDIA_ROOT, 'resumes')
+#         os.makedirs(resumes_dir, exist_ok=True)
+#         existing = JobApplication.objects.filter(job=job, applicant=user).first()
+#         if existing:
+#             return Response(
+#                 {"error": "You have already applied for this job."},
+#                 status=status.HTTP_400_BAD_REQUEST
+#                 )
+
+#         # Save or update application
+#         application = JobApplication.objects.create(
+#                     job=job,
+#                     applicant=user,
+#                     resume=resume_file
+#                 )
+#         created = True
+
+#         resume_path = application.resume.path
+#         job_description = f"{job.title}\n{job.description}\n{job.requirements}"
+
+#         # Step 1: LLM Analysis
+#         llm_result = analyzer.analyze_resume_for_job(
+#             analyzer.extract_text_from_resume(resume_path),
+#             job_description
+#         )
+#         groq_rank = llm_result.get("groq_rank", 0)
+#         skills = llm_result.get("skills", [])
+#         total_experience = llm_result.get("total_experience", "0")
+#         cgpa = llm_result.get("CGPA", "N/A")
+#         project_categories = llm_result.get("project_category", [])
+#         custom_score = llm_result.get("custom_model_score", 0)
+#         bert_similarity = llm_result.get("bert_similarity", 0)
+#         summary = llm_result.get("summary", "")
+
+#         # Step 2: Get weights from JobRankingConfig
+#         config, _ = JobRankingConfig.objects.get_or_create(job=job)
+#         weights = {
+#             "groq": config.llm_weight or 0.4,
+#             "bert": config.bert_weight or 0.3,
+#             "custom": config.custom_model_weight or 0.3
+#         }
+
+#         # Step 3: Calculate combined rank
+#         rank_score = calculate_rank(
+#             groq_rank=groq_rank,
+#             bert_similarity=bert_similarity,
+#             custom_model_score=custom_score,
+#             weights=weights
+#         )
+
+#         # Step 4: Save all data
+#         application.groq_rank = groq_rank
+#         application.bert_similarity = bert_similarity
+#         application.custom_model_score = custom_score
+#         application.rank_score = rank_score
+#         application.skills = skills
+#         application.total_experience = total_experience
+#         application.cgpa = cgpa
+#         application.project_categories = project_categories
+#         application.save()
+
+#         message = "✅ Resume updated successfully for this job." if not created else "✅ Application submitted successfully."
+
+#         return Response({
+#             "message": message,
+#             "job_title": job.title,
+#             "resume_url": application.resume.url if application.resume else None,
+#             "rank_score": rank_score,
+#             "groq_rank": groq_rank,
+#             "bert_similarity": bert_similarity,
+#             "custom_model_score": custom_score,
+#             "skills": skills,
+#             "cgpa": cgpa,
+#             "total_experience": total_experience,
+#             "project_categories": project_categories,
+#             "summary": summary
+#         }, status=status.HTTP_200_OK)
+
+#     except Exception as e:
+#         return Response({"error": f"Failed to process application: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 from jobs.services.hf_service import call_hf_model_with_retry
 import threading
 
@@ -201,9 +295,6 @@ def apply_to_job(request, job_id):
 
         resume_path = application.resume.path
         job_description = f"{job.title}\n{job.description}\n{job.requirements}"
-        
-        # ✅ USE LAZY-LOADED ANALYZER (only change - loads on first use)
-        analyzer = get_analyzer()
         resume_text = analyzer.extract_text_from_resume(resume_path)
 
         # --- Sync: fast LLM/BERT/custom scoring ---
@@ -273,7 +364,19 @@ def apply_to_job(request, job_id):
             {"error": f"Failed to process application: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+# @api_view(['GET'])
+# @permission_classes([IsAuthenticated])
+# def check_application_status(request, job_id):
+#     user = request.user
 
+#     applied = JobApplication.objects.filter(
+#         job_id=job_id,
+#         applicant=user
+#     ).exists()
+
+#     return Response({
+#         "applied": applied
+#     })
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def user_applied_jobs(request):
@@ -352,7 +455,7 @@ def resume_view(request):
             if os.path.exists(last_application.resume.path):
                 os.remove(last_application.resume.path)
 
-        # Either update last one or create new "profile" application placeholder
+        # Either update last one or create new “profile” application placeholder
         application = last_application or JobApplication.objects.create(job=None, applicant=user)
         application.resume = resume_file
         application.save()
