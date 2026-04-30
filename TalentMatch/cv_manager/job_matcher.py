@@ -66,7 +66,13 @@ def find_similar_jobs(user, limit=5, save_to_db=True):
             }
 
         # ---------------- Search Qdrant ----------------
-        results = client.search(
+        # results = client.search(
+        #     collection_name=JOB_COLLECTION,
+        #     query_vector=resume_vector,
+        #     limit=limit * 3,
+        #     with_payload=True
+        # )
+        results = client.query_points(
             collection_name=JOB_COLLECTION,
             query_vector=resume_vector,
             limit=limit * 3,
