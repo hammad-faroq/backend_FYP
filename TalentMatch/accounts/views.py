@@ -431,7 +431,7 @@ def api_password_reset_request(request):
             To=email,
             Subject='Password Reset Request — TalentMatch AI',
             TextBody=(
-                fTextBody=f"Click this link to reset your password:\n\n{reset_link}\n\nThis link expires in 1 hour."
+                f"Click this link to reset your password:\n\n{reset_link}\n\nThis link expires in 1 hour."
             )
         )
 
