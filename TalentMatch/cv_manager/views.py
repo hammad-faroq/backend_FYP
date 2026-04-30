@@ -51,6 +51,7 @@ from django.template.loader import render_to_string
 from cv_manager.services.parser import parse_uploaded_resume
 from cv_manager.job_matcher import find_similar_jobs
 from django.http import JsonResponse
+from postmarker.core import PostmarkClient
 
 # ======================================================================
 # Resume Template Selection + Input
@@ -472,13 +473,13 @@ class ResumeUploadView(APIView):
             )
 
             # ------------------- Send Email -------------------
-            send_mail(
-                subject=subject,
-                message=text_content,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user_email],
-                html_message=html_content,
-                fail_silently=False,
+            postmark = PostmarkClient(server_token=settings.POSTMARK_SERVER_TOKEN)
+            postmark.emails.send(
+                From=settings.DEFAULT_FROM_EMAIL,
+                To=user_email,
+                Subject=subject,
+                TextBody=text_content,
+                HtmlBody=html_content,
             )
 
             logger.info(f"✅ Resume analysis email sent to {user_email}")
