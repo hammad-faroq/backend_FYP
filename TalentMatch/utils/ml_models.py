@@ -13,6 +13,7 @@ _sentence_transformer = None
 
 def get_sentence_transformer():
     """
+    
     Lazy-loaded singleton SentenceTransformer model.
     Loads 'all-MiniLM-L6-v2' once and reuses across entire application.
     """
