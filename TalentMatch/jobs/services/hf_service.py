@@ -1,7 +1,7 @@
 import time
 import logging
 import json
-
+import os
 logger = logging.getLogger(__name__)
 
 HF_SPACE_NAME = "Irfaniiioo/cvjdgradio"
@@ -49,12 +49,12 @@ def call_hf_model_with_retry(resume_text: str, job_description: str, max_retries
                     "error": "gradio_client not installed"
                 }
 
-            client = Client(HF_SPACE_NAME)
+            client = Client(HF_SPACE_NAME, hf_token=os.getenv("HF_TOKEN"))
             result = client.predict(
-                cv=resume_text,
-                job_description=job_description,
-                api_name="/match_cv_job"
-            )
+                    resume_text,      # position 1 = cv
+                    job_description,  # position 2 = job_description
+                    api_name="/match_cv_job"
+                )
             print(result)
 
             logger.info(f"HF API raw result: {result}")
