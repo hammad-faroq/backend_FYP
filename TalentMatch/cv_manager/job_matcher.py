@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 from utils.qdrant_client import get_qdrant_client
 
 from utils.ml_models import get_sentence_transformer
-from qdrant_client.models import QueryRequest
 
 def get_model():
     return get_sentence_transformer()
@@ -74,13 +73,11 @@ def find_similar_jobs(user, limit=5, save_to_db=True):
         #     with_payload=True
         # )
         results = client.query_points(
-            collection_name=JOB_COLLECTION,
-            query=QueryRequest(
-                vector=resume_vector,
+                collection_name=JOB_COLLECTION,
+                query=resume_vector,        # just pass the vector directly
                 limit=limit * 3,
                 with_payload=True
             )
-        )
 
         matched_jobs = []
         if not results:
@@ -90,7 +87,8 @@ def find_similar_jobs(user, limit=5, save_to_db=True):
                 "matched_jobs": []
             }
 
-        for r in results:
+        
+        for r in results.points:
             payload = r.payload or {}
 
             job_id = payload.get("job_id")

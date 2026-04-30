@@ -161,9 +161,6 @@ def google_auth(request):
 # API-NEW-01: SEND OTP  →  POST /auth/send-otp/
 # ─────────────────────────────────────────────────────────────
 
-# @api_view(['POST'])
-# @permission_classes([AllowAny])
-
 # ─────────────────────────────────────────────────────────────
 # API-06: PASSWORD RESET
 # ─────────────────────────────────────────────────────────────
@@ -193,7 +190,7 @@ def api_send_otp(request):
     cache.set(rate_key, True, timeout=60)
 
     try:
-        postmark = PostmarkClient(server_token=settings.POSTMARK_API_KEY)
+        postmark = PostmarkClient(server_token=settings.POSTMARK_SERVER_TOKEN)
         postmark.emails.send(
             From=settings.POSTMARK_SENDER,
             To=email,
@@ -428,7 +425,7 @@ def api_password_reset_request(request):
 
     reset_link = f"{settings.API_BASE}/password-reset-confirm/{uid}/{token}/"
 
-    postmark = PostmarkClient(server_token=settings.POSTMARK_API_KEY)
+    postmark = PostmarkClient(server_token=settings.POSTMARK_SERVER_TOKEN)
     postmark.emails.send(
             From=settings.POSTMARK_SENDER,
             To=email,
