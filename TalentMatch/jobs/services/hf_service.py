@@ -49,7 +49,7 @@ def call_hf_model_with_retry(resume_text: str, job_description: str, max_retries
                     "error": "gradio_client not installed"
                 }
 
-            client = Client(HF_SPACE_NAME, hf_token=os.getenv("HF_TOKEN"))
+            client = Client(HF_SPACE_NAME)
             result = client.predict(
                     resume_text,      # position 1 = cv
                     job_description,  # position 2 = job_description
